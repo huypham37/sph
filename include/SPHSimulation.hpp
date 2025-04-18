@@ -111,6 +111,16 @@ namespace sph
 		// Statistics
 		size_t getParticleCount() const;
 
+		// Load balancing methods
+		void setLoadBalancingEnabled(bool enabled);
+		bool isLoadBalancingEnabled() const;
+		void setLoadBalanceThreshold(float threshold);
+		void setLoadBalanceInterval(int frames);
+		
+		// Load balance visualization
+		void setVisualizeLoadBalance(bool enabled);
+		bool isVisualizeLoadBalance() const;
+
 	private:
 		// Main simulation components
 		std::unique_ptr<ParticleSystem> particles;

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include "parallel/GridDomainDecomposer.hpp"
+#include "parallel/SimpleLoadBalancer.hpp"
 
 namespace sph
 {
@@ -12,6 +13,7 @@ namespace sph
 		  height(height),
 		  smoothingRadius(smoothingRadius),
 		  parallelizationEnabled(true),
+		  loadBalancingEnabled(true),
 		  numThreads(omp_get_max_threads())
 	{
 		// Initialize OpenMP with maximum available threads
@@ -34,6 +36,10 @@ namespace sph
 
 		// Create BoundaryManager with smoothing radius as ghost region width
 		boundaryManager = std::make_unique<parallel::BoundaryManager>(smoothingRadius);
+		
+		// Create SimpleLoadBalancer with default settings
+		loadBalancer = std::make_unique<parallel::SimpleLoadBalancer>();
+		std::cout << "Load balancer initialized with default settings" << std::endl;
 	}
 
 	void ParallelExecutor::setThreadCount(int count)
@@ -97,6 +103,45 @@ namespace sph
 		boundaryManager->exchangeBoundaryData(subdomains);
 	}
 
+	bool ParallelExecutor::checkAndRebalance()
+	{
+		if (!parallelizationEnabled || !loadBalancingEnabled || subdomains.empty())
+		{
+			return false;
+		}
+
+		// Check if rebalancing is needed
+		if (loadBalancer->isRebalancingNeeded(subdomains))
+		{
+			std::cout << "Load balancing in progress..." << std::endl;
+			bool rebalanced = loadBalancer->rebalance(subdomains);
+			if (rebalanced)
+			{
+				std::cout << "Load balancing completed" << std::endl;
+			}
+			return rebalanced;
+		}
+		return false;
+	}
+
+	void ParallelExecutor::setLoadBalanceThreshold(float threshold)
+	{
+		if (loadBalancer)
+		{
+			loadBalancer->setImbalanceThreshold(threshold);
+			std::cout << "Load balance threshold set to " << threshold << std::endl;
+		}
+	}
+
+	void ParallelExecutor::setLoadBalanceInterval(int frames)
+	{
+		if (auto simpleBalancer = dynamic_cast<parallel::SimpleLoadBalancer*>(loadBalancer.get()))
+		{
+			simpleBalancer->setRebalanceInterval(frames);
+			std::cout << "Load balance interval set to " << frames << " frames" << std::endl;
+		}
+	}
+
 	void ParallelExecutor::executeParallel(
 		const std::function<void(const std::vector<Particle *> &, const std::vector<Particle *> &)> &task,
 		const std::vector<Particle *> &particles)
@@ -128,6 +173,12 @@ namespace sph
 			auto endTime = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<float> elapsed = endTime - startTime;
 			subdomain->setLastComputationTime(elapsed.count());
+			}
+		
+		// Check if load balancing is needed after computation
+		if (loadBalancingEnabled)
+		{
+			checkAndRebalance();
 		}
 	}
 

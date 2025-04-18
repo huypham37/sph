@@ -74,10 +74,14 @@ int main()
 							  "+/-: Add/Remove 100 particles\n"
 							  "[/]: Increase/Decrease threads\n"
 							  "P: Toggle parallelization\n"
-							  "V: Toggle subdomain visualization\n");
+							  "V: Toggle subdomain visualization\n"
+							  "L: Toggle load balancing\n"
+							  "B: Toggle load balance visualization\n"
+							  "T: Adjust load balance threshold\n"
+							  "I: Change load balance interval\n");
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
-	instructionsText.setPosition({10, WINDOW_HEIGHT - 120});
+	instructionsText.setPosition({10, WINDOW_HEIGHT - 170});
 
 	// FPS counter variables
 	sf::Clock fpsClock;
@@ -193,6 +197,43 @@ int main()
 				{
 					simulation.setVisualizeSubdomains(!simulation.isVisualizeSubdomains());
 					std::cout << "Subdomain visualization " << (simulation.isVisualizeSubdomains() ? "enabled" : "disabled") << std::endl;
+				}
+
+				// Toggle load balancing with L key
+				if (keyEvent->code == sf::Keyboard::Key::L)
+				{
+					simulation.setLoadBalancingEnabled(!simulation.isLoadBalancingEnabled());
+				}
+
+				// Toggle load balancing visualization with B key
+				if (keyEvent->code == sf::Keyboard::Key::B)
+				{
+					simulation.setVisualizeLoadBalance(!simulation.isVisualizeLoadBalance());
+				}
+
+				// Adjust load balance threshold with T key (cycle through 0.1, 0.2, 0.3)
+				if (keyEvent->code == sf::Keyboard::Key::T)
+				{
+					// We don't have a getter for the current threshold, so we'll cycle through values
+					static float thresholds[] = {0.1f, 0.2f, 0.3f, 0.5f};
+					static int currentThresholdIndex = 0;
+					
+					currentThresholdIndex = (currentThresholdIndex + 1) % 4;
+					float newThreshold = thresholds[currentThresholdIndex];
+					simulation.setLoadBalanceThreshold(newThreshold);
+					std::cout << "Load balance threshold set to " << newThreshold << std::endl;
+				}
+
+				// Adjust load balance interval with I key (cycle through values)
+				if (keyEvent->code == sf::Keyboard::Key::I)
+				{
+					static int intervals[] = {10, 30, 60, 120};
+					static int currentIntervalIndex = 0;
+					
+					currentIntervalIndex = (currentIntervalIndex + 1) % 4;
+					int newInterval = intervals[currentIntervalIndex];
+					simulation.setLoadBalanceInterval(newInterval);
+					std::cout << "Load balance interval set to " << newInterval << " frames" << std::endl;
 				}
 			}
 		}

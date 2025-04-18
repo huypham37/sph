@@ -40,6 +40,16 @@ namespace sph
 		void drawSubdomains(
 			const std::vector<std::unique_ptr<parallel::Subdomain>> &subdomains,
 			sf::RenderWindow &window);
+			
+		/**
+		 * @brief Draw subdomain load information
+		 * 
+		 * @param subdomains Vector of subdomains with load info
+		 * @param window SFML window to draw to
+		 */
+		void drawSubdomainLoadInfo(
+			const std::vector<std::unique_ptr<parallel::Subdomain>> &subdomains,
+			sf::RenderWindow &window);
 
 		/**
 		 * @brief Enable or disable subdomain visualization
@@ -54,11 +64,34 @@ namespace sph
 		 * @return Current visualization state
 		 */
 		bool isVisualizeSubdomains() const { return visualizeSubdomains; }
+		
+		/**
+		 * @brief Enable or disable load balance visualization
+		 * 
+		 * @param enabled Whether to draw load balance info
+		 */
+		void setVisualizeLoadBalance(bool enabled) { visualizeLoadBalance = enabled; }
+		
+		/**
+		 * @brief Check if load balance visualization is enabled
+		 * 
+		 * @return Current load balance visualization state
+		 */
+		bool isVisualizeLoadBalance() const { return visualizeLoadBalance; }
 
 	private:
 		sf::Font font;			  // Font for text rendering
 		bool fontLoaded;		  // Whether font was successfully loaded
 		bool visualizeSubdomains; // Whether to draw subdomain boundaries
+		bool visualizeLoadBalance; // Whether to draw load balance info
+		
+		/**
+		 * @brief Calculate color representing computational load
+		 * 
+		 * @param load Normalized load value (0.0-1.0)
+		 * @return Color ranging from green (low load) to red (high load)
+		 */
+		sf::Color getLoadColor(float load) const;
 	};
 
 } // namespace sph

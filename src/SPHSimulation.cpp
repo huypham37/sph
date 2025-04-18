@@ -180,6 +180,12 @@ namespace sph
 		if (renderer->isVisualizeSubdomains() && parallelExecutor->isParallelizationEnabled())
 		{
 			renderer->drawSubdomains(parallelExecutor->getSubdomains(), window);
+			}
+
+		// Draw load balance info if enabled
+		if (renderer->isVisualizeLoadBalance() && parallelExecutor->isParallelizationEnabled())
+		{
+			renderer->drawSubdomainLoadInfo(parallelExecutor->getSubdomains(), window);
 		}
 	}
 
@@ -298,6 +304,38 @@ namespace sph
 				}
 			}
 		}
+	}
+
+	void SPHSimulation::setLoadBalancingEnabled(bool enabled)
+	{
+		parallelExecutor->setLoadBalancingEnabled(enabled);
+		std::cout << "Load balancing " << (enabled ? "enabled" : "disabled") << std::endl;
+	}
+
+	bool SPHSimulation::isLoadBalancingEnabled() const
+	{
+		return parallelExecutor->isLoadBalancingEnabled();
+	}
+
+	void SPHSimulation::setLoadBalanceThreshold(float threshold)
+	{
+		parallelExecutor->setLoadBalanceThreshold(threshold);
+	}
+
+	void SPHSimulation::setLoadBalanceInterval(int frames)
+	{
+		parallelExecutor->setLoadBalanceInterval(frames);
+	}
+
+	void SPHSimulation::setVisualizeLoadBalance(bool enabled)
+	{
+		renderer->setVisualizeLoadBalance(enabled);
+		std::cout << "Load balance visualization " << (enabled ? "enabled" : "disabled") << std::endl;
+	}
+
+	bool SPHSimulation::isVisualizeLoadBalance() const
+	{
+		return renderer->isVisualizeLoadBalance();
 	}
 
 } // namespace sph
