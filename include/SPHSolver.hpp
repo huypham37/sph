@@ -4,22 +4,14 @@
 #include "Particle.hpp"
 #include "Grid.hpp"
 
-namespace sph
-{
-	namespace parallel
-	{
-		class ParallelSPHSolver; // Forward declaration
-	}
-}
-
 class SPHSolver
 {
 public:
 	SPHSolver(float width, float height);
-	virtual ~SPHSolver(); // Make destructor virtual for proper inheritance
+	~SPHSolver();
 
-	virtual void update(float dt);				 // Make update virtual for override
-	virtual void draw(sf::RenderWindow &window); // Make draw virtual for override
+	void update(float dt);
+	void draw(sf::RenderWindow &window);
 	void addParticle(float x, float y);
 	void reset();
 
@@ -47,15 +39,7 @@ public:
 	void setGasConstant(float k) { gasConstant = k; }
 	void setRestDensity(float d) { restDensity = d; }
 
-	// Access to SPH kernel methods for derived classes
-	float kernelPoly6(float distSqr) const;
-	sf::Vector2f kernelGradSpiky(float dist, const sf::Vector2f &dir) const;
-	float kernelViscosityLaplacian(float dist) const;
-
-protected:
-	// Friend declaration for ParallelSPHSolver
-	friend class sph::parallel::ParallelSPHSolver;
-
+private:
 	std::vector<Particle *> particles;
 	Grid *grid;
 
@@ -79,4 +63,9 @@ protected:
 	void computeForces();
 	void integrate(float dt);
 	void resolveCollisions();
+
+	// SPH Kernels
+	float kernelPoly6(float distSqr);
+	sf::Vector2f kernelGradSpiky(float dist, const sf::Vector2f &dir);
+	float kernelViscosityLaplacian(float dist);
 };
