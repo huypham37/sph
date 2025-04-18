@@ -1,8 +1,13 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 #include "Particle.hpp"
 #include "Grid.hpp"
+// Include parallel components
+#include "parallel/Subdomain.hpp"
+#include "parallel/GridDomainDecomposer.hpp"
+#include "parallel/BoundaryManager.hpp"
 
 class SPHSolver
 {
@@ -39,6 +44,12 @@ public:
 	void setGasConstant(float k) { gasConstant = k; }
 	void setRestDensity(float d) { restDensity = d; }
 
+	// Parallel options
+	void setParallelizationEnabled(bool enabled);
+	bool isParallelizationEnabled() const { return parallelizationEnabled; }
+	void setVisualizeSubdomains(bool enabled) { visualizeSubdomains = enabled; }
+	bool isVisualizeSubdomains() const { return visualizeSubdomains; }
+
 private:
 	std::vector<Particle *> particles;
 	Grid *grid;
@@ -58,11 +69,28 @@ private:
 	float restDensity;
 	float boundaryDamping;
 
+	// Parallel components
+	bool parallelizationEnabled;
+	bool visualizeSubdomains;
+	std::unique_ptr<sph::parallel::GridDomainDecomposer> domainDecomposer;
+	std::unique_ptr<sph::parallel::BoundaryManager> boundaryManager;
+	std::vector<std::unique_ptr<sph::parallel::Subdomain>> subdomains;
+
+	// Initialize domain decomposition
+	void initializeParallelComponents();
+	void updateDomainDecomposition();
+
 	// SPH Methods
 	void computeDensityPressure();
 	void computeForces();
 	void integrate(float dt);
 	void resolveCollisions();
+
+	// Parallel SPH methods
+	void computeDensityPressureParallel();
+	void computeForcesParallel();
+	void integrateParallel(float dt);
+	void drawSubdomains(sf::RenderWindow &window);
 
 	// SPH Kernels
 	float kernelPoly6(float distSqr);

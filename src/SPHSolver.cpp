@@ -14,19 +14,75 @@ SPHSolver::SPHSolver(float width, float height)
 	  viscosityCoefficient(0.1f),
 	  gasConstant(200.0f),
 	  restDensity(1000.0f),
-	  boundaryDamping(0.5f)
+	  boundaryDamping(0.5f),
+	  parallelizationEnabled(true), // Enable parallelization by default
+	  visualizeSubdomains(false)	// Don't visualize subdomains by default
 {
 	grid = new Grid(width, height, h);
 
 	// Set the number of threads OpenMP will use
 	omp_set_num_threads(numThreads);
 	std::cout << "SPH Solver initialized with " << numThreads << " threads" << std::endl;
+
+	// Initialize parallel components
+	initializeParallelComponents();
 }
 
 SPHSolver::~SPHSolver()
 {
 	reset();
 	delete grid;
+
+	// The unique_ptrs will clean up automatically
+}
+
+void SPHSolver::initializeParallelComponents()
+{
+	// Create domain decomposer
+	domainDecomposer = std::make_unique<sph::parallel::GridDomainDecomposer>();
+
+	// Create boundary manager with smoothing radius as ghost region width
+	boundaryManager = std::make_unique<sph::parallel::BoundaryManager>(h);
+
+	// Create initial domain decomposition based on number of threads
+	if (parallelizationEnabled && !particles.empty())
+	{
+		subdomains = domainDecomposer->createDecomposition(width, height, numThreads);
+		domainDecomposer->assignParticlesToSubdomains(particles, subdomains);
+	}
+}
+
+void SPHSolver::setParallelizationEnabled(bool enabled)
+{
+	if (parallelizationEnabled != enabled)
+	{
+		parallelizationEnabled = enabled;
+		std::cout << "Parallelization " << (enabled ? "enabled" : "disabled") << std::endl;
+
+		// If enabling, initialize parallel components
+		if (enabled && subdomains.empty())
+		{
+			initializeParallelComponents();
+		}
+	}
+}
+
+void SPHSolver::updateDomainDecomposition()
+{
+	if (!parallelizationEnabled || particles.empty())
+		return;
+
+	// Create subdomains if they don't exist yet
+	if (subdomains.empty())
+	{
+		subdomains = domainDecomposer->createDecomposition(width, height, numThreads);
+	}
+
+	// Assign particles to subdomains
+	domainDecomposer->assignParticlesToSubdomains(particles, subdomains);
+
+	// Exchange boundary data between subdomains
+	boundaryManager->exchangeBoundaryData(subdomains);
 }
 
 void SPHSolver::update(float dt)
