@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 #include <sstream>
-#include "SPHSolver.hpp"
+#include "SPHSimulation.hpp" // Updated to use new class
 
 // Window dimensions
 constexpr int WINDOW_WIDTH = 800;
@@ -28,20 +28,20 @@ int main()
 
 	// Create UI font
 	sf::Font font;
-	if (!font.openFromFile("/System/Library/Fonts/Helvetica.ttc")) // Changed loadFromFile to openFromFile
+	if (!font.openFromFile("/System/Library/Fonts/Helvetica.ttc")) // Using openFromFile for SFML 3.0
 	{
 		std::cerr << "Error loading font" << std::endl;
 		return 1;
 	}
 
-	// Create SPH solver
-	SPHSolver solver(WINDOW_WIDTH, WINDOW_HEIGHT);
+	// Create SPH simulation
+	sph::SPHSimulation simulation(WINDOW_WIDTH, WINDOW_HEIGHT); // Updated to use new class
 
 	// Initialize gravity
-	solver.setGravity(0.0f, 9.8f);
+	simulation.setGravity(0.0f, 9.8f);
 
 	// Initialize the simulation with default particles
-	solver.initializeDefaultParticles(DEFAULT_PARTICLE_COUNT);
+	simulation.initializeDefaultParticles(DEFAULT_PARTICLE_COUNT);
 
 	// Timer for simulation steps
 	sf::Clock clock;
@@ -72,10 +72,12 @@ int main()
 							  "R: Reset simulation\n"
 							  "G: Toggle gravity direction\n"
 							  "+/-: Add/Remove 100 particles\n"
-							  "[/]: Increase/Decrease threads\n");
+							  "[/]: Increase/Decrease threads\n"
+							  "P: Toggle parallelization\n"
+							  "V: Toggle subdomain visualization\n");
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
-	instructionsText.setPosition({10, WINDOW_HEIGHT - 100});
+	instructionsText.setPosition({10, WINDOW_HEIGHT - 120});
 
 	// FPS counter variables
 	sf::Clock fpsClock;
@@ -121,7 +123,7 @@ int main()
 						static_cast<float>(moveEvent->position.y)};
 
 					// Apply force to particles based on mouse movement
-					solver.applyMouseForce(currentMousePos, MOUSE_FORCE_STRENGTH);
+					simulation.applyMouseForce(currentMousePos, MOUSE_FORCE_STRENGTH);
 
 					// Save current position for next frame
 					lastMousePos = currentMousePos;
@@ -136,7 +138,7 @@ int main()
 				// Reset simulation with R key
 				if (keyEvent->code == sf::Keyboard::Key::R)
 				{
-					solver.initializeDefaultParticles(DEFAULT_PARTICLE_COUNT);
+					simulation.initializeDefaultParticles(DEFAULT_PARTICLE_COUNT);
 				}
 
 				// Toggle gravity direction with G key
@@ -145,11 +147,11 @@ int main()
 					gravityDown = !gravityDown;
 					if (gravityDown)
 					{
-						solver.setGravity(0.0f, 9.8f);
+						simulation.setGravity(0.0f, 9.8f);
 					}
 					else
 					{
-						solver.setGravity(0.0f, -9.8f);
+						simulation.setGravity(0.0f, -9.8f);
 					}
 				}
 
@@ -157,26 +159,40 @@ int main()
 				if (keyEvent->code == sf::Keyboard::Key::Add ||
 					keyEvent->code == sf::Keyboard::Key::Equal) // = and + share the same key
 				{
-					solver.addParticles(PARTICLES_INCREMENT);
+					simulation.addParticles(PARTICLES_INCREMENT);
 				}
 
 				// Remove particles with minus key
 				if (keyEvent->code == sf::Keyboard::Key::Subtract ||
 					keyEvent->code == sf::Keyboard::Key::Hyphen) // - and _ share the same key
 				{
-					solver.removeParticles(PARTICLES_INCREMENT);
+					simulation.removeParticles(PARTICLES_INCREMENT);
 				}
 
 				// Increase thread count with ] key
 				if (keyEvent->code == sf::Keyboard::Key::RBracket)
 				{
-					solver.setNumThreads(solver.getNumThreads() + 1);
+					simulation.setNumThreads(simulation.getNumThreads() + 1);
 				}
 
 				// Decrease thread count with [ key
 				if (keyEvent->code == sf::Keyboard::Key::LBracket)
 				{
-					solver.setNumThreads(solver.getNumThreads() - 1);
+					simulation.setNumThreads(simulation.getNumThreads() - 1);
+				}
+
+				// Toggle parallelization with P key
+				if (keyEvent->code == sf::Keyboard::Key::P)
+				{
+					simulation.setParallelizationEnabled(!simulation.isParallelizationEnabled());
+					std::cout << "Parallelization " << (simulation.isParallelizationEnabled() ? "enabled" : "disabled") << std::endl;
+				}
+
+				// Toggle subdomain visualization with V key
+				if (keyEvent->code == sf::Keyboard::Key::V)
+				{
+					simulation.setVisualizeSubdomains(!simulation.isVisualizeSubdomains());
+					std::cout << "Subdomain visualization " << (simulation.isVisualizeSubdomains() ? "enabled" : "disabled") << std::endl;
 				}
 			}
 		}
@@ -188,16 +204,20 @@ int main()
 		// Update simulation with fixed time step
 		while (accumulator >= SIMULATION_TIMESTEP)
 		{
-			solver.update(SIMULATION_TIMESTEP);
+			simulation.update(SIMULATION_TIMESTEP);
 			accumulator -= SIMULATION_TIMESTEP;
 		}
 
 		// Update particle count text
-		particleCountText.setString("Particles: " + std::to_string(solver.getParticleCount()));
+		particleCountText.setString("Particles: " + std::to_string(simulation.getParticleCount()));
 
 		// Update thread count text
 		std::stringstream threadText;
-		threadText << "Threads: " << solver.getNumThreads() << "/" << solver.getMaxThreads();
+		threadText << "Threads: " << simulation.getNumThreads() << "/" << simulation.getMaxThreads();
+		if (!simulation.isParallelizationEnabled())
+		{
+			threadText << " (disabled)";
+		}
 		threadCountText.setString(threadText.str());
 
 		// Update FPS counter
@@ -214,7 +234,7 @@ int main()
 		window.clear(sf::Color(30, 30, 40));
 
 		// Draw simulation
-		solver.draw(window);
+		simulation.draw(window);
 
 		// Draw UI
 		window.draw(particleCountText);

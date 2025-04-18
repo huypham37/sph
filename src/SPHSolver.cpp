@@ -16,13 +16,22 @@ SPHSolver::SPHSolver(float width, float height)
 	  restDensity(1000.0f),
 	  boundaryDamping(0.5f),
 	  parallelizationEnabled(true), // Enable parallelization by default
-	  visualizeSubdomains(false)	// Don't visualize subdomains by default
+	  visualizeSubdomains(false),	// Don't visualize subdomains by default
+	  fontLoaded(false)
 {
 	grid = new Grid(width, height, h);
 
 	// Set the number of threads OpenMP will use
 	omp_set_num_threads(numThreads);
 	std::cout << "SPH Solver initialized with " << numThreads << " threads" << std::endl;
+
+	// Try to load a system font for visualization
+	// This is optional; we'll handle the case when the font can't be loaded
+	fontLoaded = font.openFromFile("/System/Library/Fonts/Helvetica.ttc"); // Changed to openFromFile for SFML 3.0
+	if (!fontLoaded)
+	{
+		std::cout << "Warning: Failed to load font for visualization" << std::endl;
+	}
 
 	// Initialize parallel components
 	initializeParallelComponents();
@@ -96,16 +105,25 @@ void SPHSolver::update(float dt)
 		grid->insertParticle(particle);
 	}
 
-	// Calculate density and pressure for each particle
-	computeDensityPressure();
+	if (parallelizationEnabled && !particles.empty())
+	{
+		// Update domain decomposition
+		updateDomainDecomposition();
 
-	// Calculate forces (pressure, viscosity, gravity)
-	computeForces();
+		// Parallel SPH computation
+		computeDensityPressureParallel();
+		computeForcesParallel();
+		integrateParallel(dt);
+	}
+	else
+	{
+		// Sequential SPH computation
+		computeDensityPressure();
+		computeForces();
+		integrate(dt);
+	}
 
-	// Integrate motion (update positions)
-	integrate(dt);
-
-	// Handle boundary collisions
+	// Handle boundary collisions (always sequential)
 	resolveCollisions();
 
 	// Update particles for rendering
@@ -117,9 +135,50 @@ void SPHSolver::update(float dt)
 
 void SPHSolver::draw(sf::RenderWindow &window)
 {
+	// Draw all particles
 	for (auto *particle : particles)
 	{
 		particle->draw(window);
+	}
+
+	// Draw subdomain visualization if enabled
+	if (visualizeSubdomains && fontLoaded)
+	{
+		drawSubdomains(window);
+	}
+}
+
+void SPHSolver::drawSubdomains(sf::RenderWindow &window)
+{
+	if (!visualizeSubdomains || subdomains.empty())
+		return;
+
+	// Create rectangles to represent each subdomain
+	for (const auto &subdomain : subdomains)
+	{
+		sf::RectangleShape rect;
+		rect.setPosition({subdomain->getX(), subdomain->getY()});	   // Use SFML 3.0 Vector2f syntax
+		rect.setSize({subdomain->getWidth(), subdomain->getHeight()}); // Use SFML 3.0 Vector2f syntax
+		rect.setFillColor(sf::Color::Transparent);
+		rect.setOutlineColor(sf::Color(255, 255, 255, 80)); // Semi-transparent white
+		rect.setOutlineThickness(1.0f);						// Fixed: was incorrectly using setOutlineThreshold
+
+		// Draw the rectangle
+		window.draw(rect);
+
+		// Draw subdomain ID only if we have a font
+		if (fontLoaded)
+		{
+			// Proper SFML 3.0 Text construction requires a font
+			sf::Text text(font, std::to_string(subdomain->getId()), 12); // Use SFML 3.0 constructor
+			text.setFillColor(sf::Color(255, 255, 255, 128));			 // Semi-transparent white
+
+			// Set position with Vector2f syntax
+			text.setPosition({subdomain->getX() + subdomain->getWidth() / 2.0f - 5.0f,
+							  subdomain->getY() + subdomain->getHeight() / 2.0f - 8.0f});
+
+			window.draw(text);
+		}
 	}
 }
 
@@ -164,6 +223,75 @@ void SPHSolver::computeDensityPressure()
 		// Calculate pressure using equation of state (ideal gas)
 		float pressure = gasConstant * (particle->getDensity() - restDensity);
 		particle->setPressure(std::max(0.0f, pressure));
+	}
+}
+
+void SPHSolver::computeDensityPressureParallel()
+{
+	// Start timing for performance measurement
+	auto startTime = std::chrono::high_resolution_clock::now();
+
+// Process each subdomain in parallel using OpenMP
+#pragma omp parallel for
+	for (int i = 0; i < static_cast<int>(subdomains.size()); i++)
+	{
+		auto &subdomain = subdomains[i];
+
+		// Process all particles in this subdomain
+		const auto &particles = subdomain->getParticles();
+		const auto &ghostParticles = subdomain->getGhostParticles();
+
+		for (auto *particle : particles)
+		{
+			// Get neighbors within smoothing radius h
+			auto neighbors = grid->getNeighbors(particle, h);
+
+			// Calculate density
+			float density = 0.0f;
+
+			// Check interactions with regular particles
+			for (auto *neighbor : neighbors)
+			{
+				sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
+				float distSqr = r.x * r.x + r.y * r.y;
+
+				if (distSqr < h2)
+				{
+					// Apply smoothing kernel (Poly6)
+					density += neighbor->getMass() * kernelPoly6(distSqr);
+				}
+			}
+
+			// Check interactions with ghost particles
+			for (auto *ghost : ghostParticles)
+			{
+				sf::Vector2f r = particle->getPosition() - ghost->getPosition();
+				float distSqr = r.x * r.x + r.y * r.y;
+
+				if (distSqr < h2)
+				{
+					// Apply smoothing kernel (Poly6)
+					density += ghost->getMass() * kernelPoly6(distSqr);
+				}
+			}
+
+			// Update particle density
+			particle->setDensity(std::max(density, restDensity));
+
+			// Calculate pressure using equation of state (ideal gas)
+			float pressure = gasConstant * (particle->getDensity() - restDensity);
+			particle->setPressure(std::max(0.0f, pressure));
+		}
+	}
+
+	// Calculate and record computation time for load balancing
+	auto endTime = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<float> elapsed = endTime - startTime;
+
+	// Update timing information for each subdomain (simplified for now)
+	for (auto &subdomain : subdomains)
+	{
+		subdomain->setLastComputationTime(elapsed.count() / subdomains.size());
 	}
 }
 
@@ -215,6 +343,105 @@ void SPHSolver::computeForces()
 	}
 }
 
+void SPHSolver::computeForcesParallel()
+{
+	// Start timing for performance measurement
+	auto startTime = std::chrono::high_resolution_clock::now();
+
+// Process each subdomain in parallel using OpenMP
+#pragma omp parallel for
+	for (int i = 0; i < static_cast<int>(subdomains.size()); i++)
+	{
+		auto &subdomain = subdomains[i];
+
+		// Process all particles in this subdomain
+		const auto &particles = subdomain->getParticles();
+		const auto &ghostParticles = subdomain->getGhostParticles();
+
+		for (auto *particle : particles)
+		{
+			sf::Vector2f pressureForce = {0.0f, 0.0f};
+			sf::Vector2f viscosityForce = {0.0f, 0.0f};
+
+			// Get neighbors within smoothing radius h
+			auto neighbors = grid->getNeighbors(particle, h);
+
+			// Handle regular particle interactions
+			for (auto *neighbor : neighbors)
+			{
+				// Skip self
+				if (particle == neighbor)
+					continue;
+
+				sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
+				float dist = std::sqrt(r.x * r.x + r.y * r.y);
+
+				if (dist > 0.0f && dist < h)
+				{
+					// Normalized direction
+					sf::Vector2f dir = r / dist;
+
+					// Pressure force calculation
+					float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
+										 neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
+
+					pressureForce -= neighbor->getMass() * pressureTerm * kernelGradSpiky(dist, dir);
+
+					// Viscosity force calculation
+					sf::Vector2f velocityDiff = neighbor->getVelocity() - particle->getVelocity();
+					viscosityForce += viscosityCoefficient * neighbor->getMass() *
+									  (velocityDiff / neighbor->getDensity()) *
+									  kernelViscosityLaplacian(dist);
+				}
+			}
+
+			// Handle ghost particle interactions
+			for (auto *ghost : ghostParticles)
+			{
+				sf::Vector2f r = particle->getPosition() - ghost->getPosition();
+				float dist = std::sqrt(r.x * r.x + r.y * r.y);
+
+				if (dist > 0.0f && dist < h)
+				{
+					// Normalized direction
+					sf::Vector2f dir = r / dist;
+
+					// Pressure force calculation
+					float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
+										 ghost->getPressure() / (ghost->getDensity() * ghost->getDensity());
+
+					pressureForce -= ghost->getMass() * pressureTerm * kernelGradSpiky(dist, dir);
+
+					// Viscosity force calculation
+					sf::Vector2f velocityDiff = ghost->getVelocity() - particle->getVelocity();
+					viscosityForce += viscosityCoefficient * ghost->getMass() *
+									  (velocityDiff / ghost->getDensity()) *
+									  kernelViscosityLaplacian(dist);
+				}
+			}
+
+			// Gravity force
+			sf::Vector2f gravityForce = gravity * particle->getMass();
+
+			// Calculate total acceleration: F/mass
+			sf::Vector2f acceleration = (pressureForce + viscosityForce + gravityForce) / particle->getMass();
+
+			// Update particle acceleration
+			particle->setAcceleration(acceleration);
+		}
+	}
+
+	// Calculate and record computation time for load balancing
+	auto endTime = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<float> elapsed = endTime - startTime;
+
+	// Update timing information for each subdomain
+	for (auto &subdomain : subdomains)
+	{
+		subdomain->setLastComputationTime(elapsed.count() / subdomains.size());
+	}
+}
+
 void SPHSolver::integrate(float dt)
 {
 // Add debug output to verify OpenMP is working
@@ -234,6 +461,27 @@ void SPHSolver::integrate(float dt)
 		sf::Vector2f velocity = particle->getVelocity() + particle->getAcceleration() * dt;
 		particle->setVelocity(velocity);
 		particle->setPosition(particle->getPosition() + velocity * dt);
+	}
+}
+
+void SPHSolver::integrateParallel(float dt)
+{
+// Process each subdomain in parallel using OpenMP
+#pragma omp parallel for
+	for (int i = 0; i < static_cast<int>(subdomains.size()); i++)
+	{
+		auto &subdomain = subdomains[i];
+
+		// Process all particles in this subdomain
+		const auto &particles = subdomain->getParticles();
+
+		for (auto *particle : particles)
+		{
+			// Semi-implicit Euler integration
+			sf::Vector2f velocity = particle->getVelocity() + particle->getAcceleration() * dt;
+			particle->setVelocity(velocity);
+			particle->setPosition(particle->getPosition() + velocity * dt);
+		}
 	}
 }
 
@@ -460,10 +708,25 @@ void SPHSolver::applyMouseForce(const sf::Vector2f &mousePos, float strength)
 // Thread management implementation
 void SPHSolver::setNumThreads(int num)
 {
-	// Ensure we don't set a value less than 1
-	numThreads = std::max(1, std::min(num, omp_get_max_threads()));
-	omp_set_num_threads(numThreads);
-	std::cout << "Thread count changed to " << numThreads << std::endl;
+	// Ensure thread count is at least 1 and at most the hardware maximum
+	int maxThreads = omp_get_max_threads();
+	num = std::max(1, std::min(num, maxThreads));
+
+	if (num != numThreads)
+	{
+		numThreads = num;
+
+		// Update OpenMP thread count
+		omp_set_num_threads(numThreads);
+		std::cout << "Thread count set to " << numThreads << " of " << maxThreads << " available" << std::endl;
+
+		// If parallelization is enabled, re-initialize domain decomposition
+		if (parallelizationEnabled && !particles.empty())
+		{
+			subdomains.clear(); // Force recreation of subdomains with new thread count
+			initializeParallelComponents();
+		}
+	}
 }
 
 int SPHSolver::getMaxThreads() const

@@ -76,6 +76,10 @@ private:
 	std::unique_ptr<sph::parallel::BoundaryManager> boundaryManager;
 	std::vector<std::unique_ptr<sph::parallel::Subdomain>> subdomains;
 
+	// Font for visualization text
+	sf::Font font;
+	bool fontLoaded;
+
 	// Initialize domain decomposition
 	void initializeParallelComponents();
 	void updateDomainDecomposition();
