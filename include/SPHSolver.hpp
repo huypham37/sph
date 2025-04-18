@@ -24,6 +24,15 @@ public:
 	// Get particle count
 	size_t getParticleCount() const { return particles.size(); }
 
+	// Thread management
+	void setNumThreads(int num);
+	int getNumThreads() const { return numThreads; }
+	int getMaxThreads() const;
+
+	// Dynamic particle management
+	void addParticles(int count);
+	void removeParticles(int count);
+
 	// SPH parameters
 	void setGravity(float x, float y) { gravity = sf::Vector2f{x, y}; } // Updated to use braced initialization
 	void setViscosity(float v) { viscosityCoefficient = v; }
@@ -36,6 +45,9 @@ private:
 
 	float width;
 	float height;
+
+	// Thread control
+	int numThreads;
 
 	// SPH Parameters
 	sf::Vector2f gravity;

@@ -1,6 +1,6 @@
 # ninja log v5
-1	676	1744970630742629481	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
-1	723	1744970630789738025	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
-1	724	1744970630789773233	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
-1	761	1744970630828654241	CMakeFiles/sph_simulation.dir/src/SPHSolver.cpp.o	477a696ff552c1a0
-761	837	1744970630904841582	sph_simulation	83daa8ea0a4725c6
+1	643	1744971628863656167	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
+1	712	1744971628933023796	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
+2	721	1744971628942601248	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
+1	755	1744971628975855578	CMakeFiles/sph_simulation.dir/src/SPHSolver.cpp.o	477a696ff552c1a0
+755	827	1744971629049084305	sph_simulation	83daa8ea0a4725c6

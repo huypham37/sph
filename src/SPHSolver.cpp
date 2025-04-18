@@ -7,7 +7,8 @@
 SPHSolver::SPHSolver(float width, float height)
 	: width(width),
 	  height(height),
-	  gravity({0.0f, 9.8f}), // Using braced initialization for SFML 3.0
+	  numThreads(omp_get_max_threads()), // Move to match declaration order
+	  gravity({0.0f, 9.8f}),			 // Using braced initialization for SFML 3.0
 	  h(16.0f),
 	  h2(h * h),
 	  viscosityCoefficient(0.1f),
@@ -16,6 +17,10 @@ SPHSolver::SPHSolver(float width, float height)
 	  boundaryDamping(0.5f)
 {
 	grid = new Grid(width, height, h);
+
+	// Set the number of threads OpenMP will use
+	omp_set_num_threads(numThreads);
+	std::cout << "SPH Solver initialized with " << numThreads << " threads" << std::endl;
 }
 
 SPHSolver::~SPHSolver()
@@ -394,4 +399,68 @@ void SPHSolver::applyMouseForce(const sf::Vector2f &mousePos, float strength)
 			}
 		}
 	}
+}
+
+// Thread management implementation
+void SPHSolver::setNumThreads(int num)
+{
+	// Ensure we don't set a value less than 1
+	numThreads = std::max(1, std::min(num, omp_get_max_threads()));
+	omp_set_num_threads(numThreads);
+	std::cout << "Thread count changed to " << numThreads << std::endl;
+}
+
+int SPHSolver::getMaxThreads() const
+{
+	return omp_get_max_threads();
+}
+
+// Dynamic particle management
+void SPHSolver::addParticles(int count)
+{
+	if (count <= 0)
+		return;
+
+	// Add particles in a small area near the center of the screen
+	const float centerX = width / 2.0f;
+	const float centerY = height / 3.0f; // Upper third of the screen
+	const float radius = std::min(width, height) / 8.0f;
+
+	for (int i = 0; i < count; ++i)
+	{
+		// Generate random position within a circle
+		float angle = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f * M_PI;
+		float distance = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * radius;
+
+		float x = centerX + cos(angle) * distance;
+		float y = centerY + sin(angle) * distance;
+
+		// Ensure within bounds
+		x = std::max(5.0f, std::min(width - 5.0f, x));
+		y = std::max(5.0f, std::min(height - 5.0f, y));
+
+		addParticle(x, y);
+	}
+
+	std::cout << "Added " << count << " particles, total: " << particles.size() << std::endl;
+}
+
+void SPHSolver::removeParticles(int count)
+{
+	if (count <= 0)
+		return;
+
+	// Remove the last N particles (or all if count > particles.size())
+	count = std::min(count, static_cast<int>(particles.size()));
+
+	for (int i = 0; i < count; ++i)
+	{
+		if (!particles.empty())
+		{
+			delete particles.back();
+			particles.pop_back();
+		}
+	}
+
+	std::cout << "Removed " << count << " particles, total: " << particles.size() << std::endl;
 }

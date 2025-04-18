@@ -4,7 +4,7 @@
 
 
 naturally parallizable 
-Density and pressure calculation (computeDensityPressure())
+- Density and pressure calculation (computeDensityPressure())
 Force computation (computeForces())
 Position/velocity integration (integrate())
 Collision resolution (resolveCollisions())

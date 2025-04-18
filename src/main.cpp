@@ -1,6 +1,8 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <optional>
+#include <string>
+#include <sstream>
 #include "SPHSolver.hpp"
 
 // Window dimensions
@@ -11,6 +13,9 @@ constexpr int WINDOW_HEIGHT = 600;
 constexpr float SIMULATION_TIMESTEP = 0.005f;
 constexpr int DEFAULT_PARTICLE_COUNT = 1000;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
+
+// Particle adjustment parameters
+constexpr int PARTICLES_INCREMENT = 100;
 
 // FPS counter parameters
 constexpr float FPS_UPDATE_INTERVAL = 0.5f; // Update FPS display every 0.5 seconds
@@ -48,21 +53,29 @@ int main()
 	particleCountText.setFillColor(sf::Color::White);
 	particleCountText.setPosition({10, 10});
 
+	// Thread counter text
+	sf::Text threadCountText(font, "");
+	threadCountText.setCharacterSize(16);
+	threadCountText.setFillColor(sf::Color::White);
+	threadCountText.setPosition({10, 30});
+
 	// FPS counter text
 	sf::Text fpsText(font, "");
 	fpsText.setCharacterSize(16);
 	fpsText.setFillColor(sf::Color::White);
-	fpsText.setPosition({10, 30});
+	fpsText.setPosition({10, 50});
 
 	// Instruction text
 	sf::Text instructionsText(font,
 							  "Controls:\n"
 							  "Move Mouse: Interact with fluid\n"
 							  "R: Reset simulation\n"
-							  "G: Toggle gravity direction");
+							  "G: Toggle gravity direction\n"
+							  "+/-: Add/Remove 100 particles\n"
+							  "[/]: Increase/Decrease threads\n");
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
-	instructionsText.setPosition({10, WINDOW_HEIGHT - 80});
+	instructionsText.setPosition({10, WINDOW_HEIGHT - 100});
 
 	// FPS counter variables
 	sf::Clock fpsClock;
@@ -139,6 +152,32 @@ int main()
 						solver.setGravity(0.0f, -9.8f);
 					}
 				}
+
+				// Add particles with plus key
+				if (keyEvent->code == sf::Keyboard::Key::Add ||
+					keyEvent->code == sf::Keyboard::Key::Equal) // = and + share the same key
+				{
+					solver.addParticles(PARTICLES_INCREMENT);
+				}
+
+				// Remove particles with minus key
+				if (keyEvent->code == sf::Keyboard::Key::Subtract ||
+					keyEvent->code == sf::Keyboard::Key::Hyphen) // - and _ share the same key
+				{
+					solver.removeParticles(PARTICLES_INCREMENT);
+				}
+
+				// Increase thread count with ] key
+				if (keyEvent->code == sf::Keyboard::Key::RBracket)
+				{
+					solver.setNumThreads(solver.getNumThreads() + 1);
+				}
+
+				// Decrease thread count with [ key
+				if (keyEvent->code == sf::Keyboard::Key::LBracket)
+				{
+					solver.setNumThreads(solver.getNumThreads() - 1);
+				}
 			}
 		}
 
@@ -155,6 +194,11 @@ int main()
 
 		// Update particle count text
 		particleCountText.setString("Particles: " + std::to_string(solver.getParticleCount()));
+
+		// Update thread count text
+		std::stringstream threadText;
+		threadText << "Threads: " << solver.getNumThreads() << "/" << solver.getMaxThreads();
+		threadCountText.setString(threadText.str());
 
 		// Update FPS counter
 		frameCount++;
@@ -174,6 +218,7 @@ int main()
 
 		// Draw UI
 		window.draw(particleCountText);
+		window.draw(threadCountText);
 		window.draw(fpsText);
 		window.draw(instructionsText);
 
