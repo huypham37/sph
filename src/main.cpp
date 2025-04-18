@@ -69,8 +69,6 @@ int main()
 	sf::Text instructionsText(font,
 							  "Controls:\n"
 							  "Move Mouse: Interact with fluid\n"
-							  "R: Reset simulation\n"
-							  "G: Toggle gravity direction\n"
 							  "+/-: Add/Remove 100 particles\n"
 							  "[/]: Increase/Decrease threads\n"
 							  "P: Toggle parallelization\n"
@@ -81,7 +79,7 @@ int main()
 							  "I: Change load balance interval\n");
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
-	instructionsText.setPosition({10, WINDOW_HEIGHT - 170});
+	instructionsText.setPosition({10, WINDOW_HEIGHT - 150});
 
 	// FPS counter variables
 	sf::Clock fpsClock;

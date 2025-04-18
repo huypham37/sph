@@ -95,13 +95,21 @@ namespace sph
 		const float barWidth = 60.0f;
 		const float padding = 5.0f;
 
-		// Top of screen, starting position for the load bars
-		float yPos = 10.0f;
+		 // Position variables - top right corner
+		float xPos = window.getSize().x - 270.0f; // Position from right side
+		float yPos = 10.0f; // Starting from top
 
-		// Draw average computation time info at the top
+		// Draw title
+		sf::Text titleText(font, "Load Balancing Metrics", 14);
+		titleText.setFillColor(sf::Color::White);
+		titleText.setPosition({xPos, yPos});
+		window.draw(titleText);
+		yPos += 25.0f;
+		
+		// Draw average computation time info
 		sf::Text avgText(font, "Avg time: " + std::to_string(avgTime * 1000.0f) + " ms", 12);
 		avgText.setFillColor(sf::Color::White);
-		avgText.setPosition({10.0f, yPos}); // SFML 3.0 Vector2f syntax
+		avgText.setPosition({xPos, yPos});
 		window.draw(avgText);
 		yPos += 20.0f;
 
@@ -119,19 +127,19 @@ namespace sph
 				
 			sf::Text text(font, info, 12);
 			text.setFillColor(sf::Color::White);
-			text.setPosition({10.0f, yPos}); // SFML 3.0 Vector2f syntax
+			text.setPosition({xPos, yPos});
 			window.draw(text);
 			
 			// Draw load bar background
 			sf::RectangleShape barBg;
-			barBg.setPosition({200.0f, yPos + padding}); // SFML 3.0 Vector2f syntax
+			barBg.setPosition({xPos + 10.0f, yPos + padding + 15.0f});
 			barBg.setSize({barWidth, barHeight});
 			barBg.setFillColor(sf::Color(50, 50, 50));
 			window.draw(barBg);
 			
 			// Draw actual load bar
 			sf::RectangleShape bar;
-			bar.setPosition({200.0f, yPos + padding}); // SFML 3.0 Vector2f syntax
+			bar.setPosition({xPos + 10.0f, yPos + padding + 15.0f});
 			bar.setSize({barWidth * normalizedTime, barHeight});
 			bar.setFillColor(getLoadColor(normalizedTime));
 			window.draw(bar);
@@ -150,7 +158,7 @@ namespace sph
 				window.draw(rect);
 			}
 			
-			yPos += barHeight + padding + 15.0f;
+			yPos += barHeight + padding + 30.0f;
 		}
 	}
 
