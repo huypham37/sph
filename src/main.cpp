@@ -12,6 +12,9 @@ constexpr float SIMULATION_TIMESTEP = 0.005f;
 constexpr int DEFAULT_PARTICLE_COUNT = 1000;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
 
+// FPS counter parameters
+constexpr float FPS_UPDATE_INTERVAL = 0.5f; // Update FPS display every 0.5 seconds
+
 int main()
 {
 	// Create the main window
@@ -45,6 +48,12 @@ int main()
 	particleCountText.setFillColor(sf::Color::White);
 	particleCountText.setPosition({10, 10});
 
+	// FPS counter text
+	sf::Text fpsText(font, "");
+	fpsText.setCharacterSize(16);
+	fpsText.setFillColor(sf::Color::White);
+	fpsText.setPosition({10, 30});
+
 	// Instruction text
 	sf::Text instructionsText(font,
 							  "Controls:\n"
@@ -54,6 +63,10 @@ int main()
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
 	instructionsText.setPosition({10, WINDOW_HEIGHT - 80});
+
+	// FPS counter variables
+	sf::Clock fpsClock;
+	int frameCount = 0;
 
 	// Main game loop
 	bool gravityDown = true;
@@ -143,6 +156,16 @@ int main()
 		// Update particle count text
 		particleCountText.setString("Particles: " + std::to_string(solver.getParticleCount()));
 
+		// Update FPS counter
+		frameCount++;
+		if (fpsClock.getElapsedTime().asSeconds() >= FPS_UPDATE_INTERVAL)
+		{
+			float fps = frameCount / fpsClock.getElapsedTime().asSeconds();
+			fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
+			fpsClock.restart();
+			frameCount = 0;
+		}
+
 		// Clear the window
 		window.clear(sf::Color(30, 30, 40));
 
@@ -151,6 +174,7 @@ int main()
 
 		// Draw UI
 		window.draw(particleCountText);
+		window.draw(fpsText);
 		window.draw(instructionsText);
 
 		// Display what we rendered

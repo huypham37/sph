@@ -1,6 +1,8 @@
 #include "SPHSolver.hpp"
 #include <cmath>
 #include <algorithm>
+#include <iostream>
+#include <omp.h> // Added OpenMP header
 
 SPHSolver::SPHSolver(float width, float height)
 	: width(width),
@@ -154,8 +156,19 @@ void SPHSolver::computeForces()
 
 void SPHSolver::integrate(float dt)
 {
-	for (auto *particle : particles)
+// Add debug output to verify OpenMP is working
+#pragma omp parallel
 	{
+#pragma omp single
+		{
+			std::cout << "OpenMP is using " << omp_get_num_threads() << " threads" << std::endl;
+		}
+	}
+
+#pragma omp parallel for
+	for (size_t i = 0; i < particles.size(); i++)
+	{
+		Particle *particle = particles[i];
 		// Semi-implicit Euler integration
 		sf::Vector2f velocity = particle->getVelocity() + particle->getAcceleration() * dt;
 		particle->setVelocity(velocity);
