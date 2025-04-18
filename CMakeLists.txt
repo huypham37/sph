@@ -55,9 +55,10 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Add source files
 file(GLOB SOURCES "src/*.cpp")
+file(GLOB PARALLEL_SOURCES "src/parallel/*.cpp")
 
 # Create executable
-add_executable(sph_simulation ${SOURCES})
+add_executable(sph_simulation ${SOURCES} ${PARALLEL_SOURCES})
 
 # Link libraries using new SFML 3.0 target names
 target_link_libraries(sph_simulation SFML::Graphics SFML::Window SFML::System OpenMP::OpenMP_CXX)
