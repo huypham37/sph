@@ -1,8 +1,9 @@
 # ninja log v5
-2	876	1744976254182521715	CMakeFiles/sph_simulation.dir/src/parallel/Subdomain.cpp.o	906b5ce3e4c3b114
-1	879	1744976254182690006	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
-2	894	1744976254201550334	CMakeFiles/sph_simulation.dir/src/parallel/GridDomainDecomposer.cpp.o	ef426d35689a4fd5
-1	945	1744976254252521597	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
-2	959	1744976254266299123	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
-1	983	1744976254291516046	CMakeFiles/sph_simulation.dir/src/SPHSolver.cpp.o	477a696ff552c1a0
-983	1050	1744976254359777632	sph_simulation	c4da9196b8eb10e4
+2	783	1744976394538241813	CMakeFiles/sph_simulation.dir/src/parallel/Subdomain.cpp.o	906b5ce3e4c3b114
+2	786	1744976394540086442	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
+2	786	1744976394542742738	CMakeFiles/sph_simulation.dir/src/parallel/BoundaryManager.cpp.o	fd52ebbb92c05bb5
+2	801	1744976394558523435	CMakeFiles/sph_simulation.dir/src/parallel/GridDomainDecomposer.cpp.o	ef426d35689a4fd5
+1	847	1744976394604561730	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
+2	868	1744976394625406478	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
+2	897	1744976394655075743	CMakeFiles/sph_simulation.dir/src/SPHSolver.cpp.o	477a696ff552c1a0
+897	963	1744976394721648827	sph_simulation	fd4cc0e4bd4d015b
