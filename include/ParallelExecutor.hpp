@@ -96,35 +96,35 @@ namespace sph
 
 		/**
 		 * @brief Check if load balancing is needed and perform if necessary
-		 * 
+		 *
 		 * @return True if load balancing was performed
 		 */
 		bool checkAndRebalance();
 
 		/**
 		 * @brief Set whether load balancing is enabled
-		 * 
+		 *
 		 * @param enabled True if load balancing should be used
 		 */
 		void setLoadBalancingEnabled(bool enabled) { loadBalancingEnabled = enabled; }
 
 		/**
 		 * @brief Check if load balancing is enabled
-		 * 
+		 *
 		 * @return True if load balancing is enabled
 		 */
 		bool isLoadBalancingEnabled() const { return loadBalancingEnabled; }
 
 		/**
 		 * @brief Set load balancing threshold
-		 * 
+		 *
 		 * @param threshold Value between 0 and 1 representing acceptable imbalance
 		 */
 		void setLoadBalanceThreshold(float threshold);
 
 		/**
 		 * @brief Set load balance check interval
-		 * 
+		 *
 		 * @param frames Number of frames between balance checks
 		 */
 		void setLoadBalanceInterval(int frames);

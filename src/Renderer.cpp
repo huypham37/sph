@@ -95,9 +95,9 @@ namespace sph
 		const float barWidth = 60.0f;
 		const float padding = 5.0f;
 
-		 // Position variables - top right corner
+		// Position variables - top right corner
 		float xPos = window.getSize().x - 270.0f; // Position from right side
-		float yPos = 10.0f; // Starting from top
+		float yPos = 10.0f;						  // Starting from top
 
 		// Draw title
 		sf::Text titleText(font, "Load Balancing Metrics", 14);
@@ -105,7 +105,7 @@ namespace sph
 		titleText.setPosition({xPos, yPos});
 		window.draw(titleText);
 		yPos += 25.0f;
-		
+
 		// Draw average computation time info
 		sf::Text avgText(font, "Avg time: " + std::to_string(avgTime * 1000.0f) + " ms", 12);
 		avgText.setFillColor(sf::Color::White);
@@ -119,45 +119,45 @@ namespace sph
 			const auto &subdomain = subdomains[i];
 			float time = subdomain->getLastComputationTime();
 			float normalizedTime = (maxTime > 0.0f) ? (time / maxTime) : 0.0f;
-			
+
 			// Draw subdomain ID and stats
-			std::string info = "Domain " + std::to_string(subdomain->getId()) + 
-				": " + std::to_string(subdomain->getParticles().size()) + " particles, " +
-				std::to_string(time * 1000.0f) + " ms";
-				
+			std::string info = "Domain " + std::to_string(subdomain->getId()) +
+							   ": " + std::to_string(subdomain->getParticles().size()) + " particles, " +
+							   std::to_string(time * 1000.0f) + " ms";
+
 			sf::Text text(font, info, 12);
 			text.setFillColor(sf::Color::White);
 			text.setPosition({xPos, yPos});
 			window.draw(text);
-			
+
 			// Draw load bar background
 			sf::RectangleShape barBg;
 			barBg.setPosition({xPos + 10.0f, yPos + padding + 15.0f});
 			barBg.setSize({barWidth, barHeight});
 			barBg.setFillColor(sf::Color(50, 50, 50));
 			window.draw(barBg);
-			
+
 			// Draw actual load bar
 			sf::RectangleShape bar;
 			bar.setPosition({xPos + 10.0f, yPos + padding + 15.0f});
 			bar.setSize({barWidth * normalizedTime, barHeight});
 			bar.setFillColor(getLoadColor(normalizedTime));
 			window.draw(bar);
-			
+
 			// Color the subdomain based on load
 			if (visualizeSubdomains)
 			{
 				sf::RectangleShape rect;
 				rect.setPosition({subdomain->getX(), subdomain->getY()});
 				rect.setSize({subdomain->getWidth(), subdomain->getHeight()});
-				rect.setFillColor(sf::Color(getLoadColor(normalizedTime).r, 
-										  getLoadColor(normalizedTime).g, 
-										  getLoadColor(normalizedTime).b, 40));
+				rect.setFillColor(sf::Color(getLoadColor(normalizedTime).r,
+											getLoadColor(normalizedTime).g,
+											getLoadColor(normalizedTime).b, 40));
 				rect.setOutlineColor(sf::Color(255, 255, 255, 80));
 				rect.setOutlineThickness(1.0f);
 				window.draw(rect);
 			}
-			
+
 			yPos += barHeight + padding + 30.0f;
 		}
 	}

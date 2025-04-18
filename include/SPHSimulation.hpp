@@ -116,7 +116,7 @@ namespace sph
 		bool isLoadBalancingEnabled() const;
 		void setLoadBalanceThreshold(float threshold);
 		void setLoadBalanceInterval(int frames);
-		
+
 		// Load balance visualization
 		void setVisualizeLoadBalance(bool enabled);
 		bool isVisualizeLoadBalance() const;

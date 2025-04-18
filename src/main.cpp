@@ -215,7 +215,7 @@ int main()
 					// We don't have a getter for the current threshold, so we'll cycle through values
 					static float thresholds[] = {0.1f, 0.2f, 0.3f, 0.5f};
 					static int currentThresholdIndex = 0;
-					
+
 					currentThresholdIndex = (currentThresholdIndex + 1) % 4;
 					float newThreshold = thresholds[currentThresholdIndex];
 					simulation.setLoadBalanceThreshold(newThreshold);
@@ -227,7 +227,7 @@ int main()
 				{
 					static int intervals[] = {10, 30, 60, 120};
 					static int currentIntervalIndex = 0;
-					
+
 					currentIntervalIndex = (currentIntervalIndex + 1) % 4;
 					int newInterval = intervals[currentIntervalIndex];
 					simulation.setLoadBalanceInterval(newInterval);

@@ -180,7 +180,7 @@ namespace sph
 		if (renderer->isVisualizeSubdomains() && parallelExecutor->isParallelizationEnabled())
 		{
 			renderer->drawSubdomains(parallelExecutor->getSubdomains(), window);
-			}
+		}
 
 		// Draw load balance info if enabled
 		if (renderer->isVisualizeLoadBalance() && parallelExecutor->isParallelizationEnabled())

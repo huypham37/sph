@@ -36,7 +36,7 @@ namespace sph
 
 		// Create BoundaryManager with smoothing radius as ghost region width
 		boundaryManager = std::make_unique<parallel::BoundaryManager>(smoothingRadius);
-		
+
 		// Create SimpleLoadBalancer with default settings
 		loadBalancer = std::make_unique<parallel::SimpleLoadBalancer>();
 		std::cout << "Load balancer initialized with default settings" << std::endl;
@@ -135,7 +135,7 @@ namespace sph
 
 	void ParallelExecutor::setLoadBalanceInterval(int frames)
 	{
-		if (auto simpleBalancer = dynamic_cast<parallel::SimpleLoadBalancer*>(loadBalancer.get()))
+		if (auto simpleBalancer = dynamic_cast<parallel::SimpleLoadBalancer *>(loadBalancer.get()))
 		{
 			simpleBalancer->setRebalanceInterval(frames);
 			std::cout << "Load balance interval set to " << frames << " frames" << std::endl;
@@ -173,8 +173,8 @@ namespace sph
 			auto endTime = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<float> elapsed = endTime - startTime;
 			subdomain->setLastComputationTime(elapsed.count());
-			}
-		
+		}
+
 		// Check if load balancing is needed after computation
 		if (loadBalancingEnabled)
 		{
