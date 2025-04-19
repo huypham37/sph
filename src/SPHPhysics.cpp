@@ -9,7 +9,7 @@ namespace sph
 
 	SPHPhysics::SPHPhysics()
 		: gravity({0.0f, 9.8f}),
-		  h(16.0f),
+		  h(0.2f),
 		  h2(h * h),
 		  viscosityCoefficient(0.1f),
 		  gasConstant(200.0f),

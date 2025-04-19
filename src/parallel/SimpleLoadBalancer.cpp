@@ -44,18 +44,18 @@ namespace sph
 
 			float avgTime = totalTime / subdomains.size();
 
-			// Check for imbalance
-			for (const auto &subdomain : subdomains)
-			{
-				float time = subdomain->getLastComputationTime();
-				// If any subdomain is significantly slower than average, rebalance
-				if (time > avgTime * (1.0f + imbalanceThreshold))
-				{
-					stepsSinceLastRebalance = 0;
-					std::cout << "Load imbalance detected: " << time << " vs avg " << avgTime << std::endl;
-					return true;
-				}
-			}
+			// // Check for imbalance
+			// for (const auto &subdomain : subdomains)
+			// {
+			// 	float time = subdomain->getLastComputationTime();
+			// 	// If any subdomain is significantly slower than average, rebalance
+			// 	if (time > avgTime * (1.0f + imbalanceThreshold))
+			// 	{
+			// 		stepsSinceLastRebalance = 0;
+			// 		std::cout << "Load imbalance detected: " << time << " vs avg " << avgTime << std::endl;
+			// 		return true;
+			// 	}
+			// }
 
 			return false;
 		}
@@ -73,14 +73,14 @@ namespace sph
 			// Calculate optimal boundaries
 			auto newBoundaries = calculateOptimalBoundaries(subdomains);
 
-			// Apply new boundaries (in a real implementation, this would be more sophisticated)
-			for (size_t i = 0; i < subdomains.size(); ++i)
-			{
-				// In a real implementation, you would redistribute particles based on new boundaries
-				// For this simple version, we're just noting that rebalancing occurred
-				std::cout << "Rebalanced subdomain " << i << " boundary: "
-						  << newBoundaries[i].first << " -> " << newBoundaries[i].second << std::endl;
-			}
+			// // Apply new boundaries (in a real implementation, this would be more sophisticated)
+			// for (size_t i = 0; i < subdomains.size(); ++i)
+			// {
+			// 	// In a real implementation, you would redistribute particles based on new boundaries
+			// 	// For this simple version, we're just noting that rebalancing occurred
+			// 	std::cout << "Rebalanced subdomain " << i << " boundary: "
+			// 			  << newBoundaries[i].first << " -> " << newBoundaries[i].second << std::endl;
+			// }
 
 			// In a real implementation, you would now need to:
 			// 1. Reassign particles to their new subdomains

@@ -1,5 +1,4 @@
-- refactor code base
-- Display current thread number 
+- Verlet list (sec 2)
 
 
 Paralellizable area: 
@@ -22,3 +21,6 @@ Bottlenecks that can improved
 
 	The current approach checks particle collisions after the grid has been updated for rendering.
 	We could integrate collision detection directly within the SPH force calculation loop.
+
+#file:.system_prompt.md  the getNeighbour is the expensive task, why is it called in many places? 
+i think it should only be called one in each step of the simulation right? and how about paralllel that tasks? we already have domain decomposer which decompose the program into smaller subdomain and subdoamin has particles, why dont we using different threads to acceelarte searching
