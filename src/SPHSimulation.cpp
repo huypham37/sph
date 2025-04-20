@@ -8,7 +8,7 @@ namespace sph
 	SPHSimulation::SPHSimulation(float width, float height)
 		: width(width),
 		  height(height),
-		  smoothingRadius(16.0f)
+		  smoothingRadius(20.0f)
 	{
 		// Create component instances
 		particles = std::make_unique<ParticleSystem>(width, height, smoothingRadius);
@@ -35,18 +35,34 @@ namespace sph
 			// Update domain decomposition for parallel processing
 			parallelExecutor->updateDecomposition(particles->getParticles());
 
-			// Execute physics computations in parallel
-			auto densityPressureTask = [this](const std::vector<Particle *> &localParticles,
-											  const std::vector<Particle *> &ghostParticles)
+			// First, precompute neighbors for all particles - this is now a separate parallel task
+			auto precomputeNeighborsTask = [this](const std::vector<Particle*>& localParticles,
+											const std::vector<Particle*>& ghostParticles)
+			{
+				// For each particle in this subdomain, store its neighbors
+				for (auto* particle : localParticles)
+				{
+					// Store the computed neighbors directly in the particle
+					particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius);
+				}
+			};
+
+			// Execute neighbor computation task in parallel
+			parallelExecutor->executeParallel(precomputeNeighborsTask, particles->getParticles());
+
+			// Execute physics computations in parallel - now using cached neighbors
+			auto densityPressureTask = [this](const std::vector<Particle*>& localParticles,
+										const std::vector<Particle*>& ghostParticles)
 			{
 				// Process density and pressure using local and ghost particles
-				for (auto *particle : localParticles)
+				for (auto* particle : localParticles)
 				{
 					float density = 0.0f;
-					auto neighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius);
+					// Use the precomputed neighbors
+					auto& neighbors = particle->cachedNeighbors;
 
 					// Consider both regular neighbors and ghost particles
-					auto processNeighbor = [&](Particle *neighbor)
+					auto processNeighbor = [&](Particle* neighbor)
 					{
 						sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
 						float distSqr = r.x * r.x + r.y * r.y;
@@ -58,13 +74,13 @@ namespace sph
 					};
 
 					// Process regular neighbors
-					for (auto *neighbor : neighbors)
+					for (auto* neighbor : neighbors)
 					{
 						processNeighbor(neighbor);
 					}
 
 					// Process ghost neighbors
-					for (auto *ghost : ghostParticles)
+					for (auto* ghost : ghostParticles)
 					{
 						processNeighbor(ghost);
 					}
@@ -76,18 +92,19 @@ namespace sph
 				}
 			};
 
-			auto forcesTask = [this](const std::vector<Particle *> &localParticles,
-									 const std::vector<Particle *> &ghostParticles)
+			auto forcesTask = [this](const std::vector<Particle*>& localParticles,
+								const std::vector<Particle*>& ghostParticles)
 			{
 				// Process forces using local and ghost particles
-				for (auto *particle : localParticles)
+				for (auto* particle : localParticles)
 				{
 					sf::Vector2f pressureForce = {0.0f, 0.0f};
 					sf::Vector2f viscosityForce = {0.0f, 0.0f};
 
-					auto neighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius);
+					// Use the precomputed neighbors instead of calling getNeighbors again
+					auto& neighbors = particle->cachedNeighbors;
 
-					auto processNeighbor = [&](Particle *neighbor)
+					auto processNeighbor = [&](Particle* neighbor)
 					{
 						// Skip self
 						if (particle == neighbor)
@@ -103,25 +120,25 @@ namespace sph
 
 							// Pressure force
 							float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
-												 neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
+											neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
 							pressureForce -= neighbor->getMass() * pressureTerm * physics->kernelGradSpiky(dist, dir);
 
 							// Viscosity force
 							sf::Vector2f velocityDiff = neighbor->getVelocity() - particle->getVelocity();
 							viscosityForce += physics->getViscosity() * neighbor->getMass() *
-											  (velocityDiff / neighbor->getDensity()) *
-											  physics->kernelViscosityLaplacian(dist);
+											(velocityDiff / neighbor->getDensity()) *
+											physics->kernelViscosityLaplacian(dist);
 						}
 					};
 
 					// Process regular neighbors
-					for (auto *neighbor : neighbors)
+					for (auto* neighbor : neighbors)
 					{
 						processNeighbor(neighbor);
 					}
 
 					// Process ghost neighbors
-					for (auto *ghost : ghostParticles)
+					for (auto* ghost : ghostParticles)
 					{
 						processNeighbor(ghost);
 					}
@@ -135,11 +152,11 @@ namespace sph
 				}
 			};
 
-			auto integrateTask = [dt](const std::vector<Particle *> &localParticles,
-									  const std::vector<Particle *> &)
+			auto integrateTask = [dt](const std::vector<Particle*>& localParticles,
+								const std::vector<Particle*>& )
 			{
 				// Integrate particle positions and velocities
-				for (auto *particle : localParticles)
+				for (auto* particle : localParticles)
 				{
 					// Semi-implicit Euler integration
 					sf::Vector2f velocity = particle->getVelocity() + particle->getAcceleration() * dt;
@@ -155,7 +172,13 @@ namespace sph
 		}
 		else
 		{
-			// Sequential execution path
+			// Sequential execution path - we should also optimize this path
+			// First, cache neighbors for all particles
+			for (auto* particle : particles->getParticles()) {
+				particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius);
+			}
+			
+			// Modified sequential methods to use cached neighbors
 			physics->computeDensityPressure(particles->getParticles(), particles->getGrid());
 			physics->computeForces(particles->getParticles(), particles->getGrid());
 			physics->integrate(particles->getParticles(), dt);
@@ -165,7 +188,7 @@ namespace sph
 		physics->resolveCollisions(particles->getParticles(), particles->getGrid(), width, height);
 
 		// Update particles for rendering
-		for (auto *particle : particles->getParticles())
+		for (auto* particle : particles->getParticles())
 		{
 			particle->update(dt);
 		}

@@ -7,7 +7,8 @@ class Particle
 public:
 	Particle(float x, float y);
 	~Particle() = default;
-
+	
+	std::vector<Particle*> cachedNeighbors;
 	void update(float dt);
 	void draw(sf::RenderWindow &window);
 

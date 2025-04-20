@@ -153,8 +153,8 @@ namespace sph
 			return;
 		}
 
-// Process each subdomain in parallel using OpenMP
-#pragma omp parallel for num_threads(numThreads)
+		// Process each subdomain in parallel using OpenMP
+		#pragma omp parallel for schedule(dynamic)
 		for (int i = 0; i < static_cast<int>(subdomains.size()); i++)
 		{
 			auto &subdomain = subdomains[i];

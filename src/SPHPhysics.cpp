@@ -26,78 +26,70 @@ namespace sph
 
 	void SPHPhysics::computeDensityPressure(const std::vector<Particle *> &particles, Grid *grid)
 	{
-		for (auto *particle : particles)
+		for (auto* particle : particles)
 		{
-			// Get neighbors within smoothing radius h
-			auto neighbors = grid->getNeighbors(particle, h);
-
-			// Calculate density
 			float density = 0.0f;
-			for (auto *neighbor : neighbors)
+			
+			// Use cached neighbors
+			for (auto* neighbor : particle->cachedNeighbors)
 			{
 				sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
 				float distSqr = r.x * r.x + r.y * r.y;
-
-				if (distSqr < h2)
+	
+				if (distSqr < h * h)
 				{
-					// Apply smoothing kernel (Poly6)
 					density += neighbor->getMass() * kernelPoly6(distSqr);
 				}
 			}
-
-			// Update particle density
+	
+			// Update particle density and pressure
 			particle->setDensity(std::max(density, restDensity));
-
-			// Calculate pressure using equation of state (ideal gas)
 			float pressure = gasConstant * (particle->getDensity() - restDensity);
 			particle->setPressure(std::max(0.0f, pressure));
 		}
 	}
+	
 
 	void SPHPhysics::computeForces(const std::vector<Particle *> &particles, Grid *grid)
 	{
-		for (auto *particle : particles)
+		for (auto* particle : particles)
 		{
 			sf::Vector2f pressureForce = {0.0f, 0.0f};
 			sf::Vector2f viscosityForce = {0.0f, 0.0f};
-
-			auto neighbors = grid->getNeighbors(particle, h);
-
-			for (auto *neighbor : neighbors)
+	
+			// Use cached neighbors
+			for (auto* neighbor : particle->cachedNeighbors)
 			{
 				// Skip self
 				if (particle == neighbor)
 					continue;
-
+	
 				sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
 				float dist = std::sqrt(r.x * r.x + r.y * r.y);
-
+	
 				if (dist > 0.0f && dist < h)
 				{
 					// Normalized direction
 					sf::Vector2f dir = r / dist;
-
-					// Pressure force: -∇p = -grad(p) = -mass * (p_i/rho_i^2 + p_j/rho_j^2) * grad_W
+	
+					// Pressure force
 					float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
-										 neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
-
+									   neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
 					pressureForce -= neighbor->getMass() * pressureTerm * kernelGradSpiky(dist, dir);
-
-					// Viscosity force: μ∇^2v = μ * mass * (v_j - v_i)/rho_j * laplacian_W
+	
+					// Viscosity force
 					sf::Vector2f velocityDiff = neighbor->getVelocity() - particle->getVelocity();
 					viscosityForce += viscosityCoefficient * neighbor->getMass() *
-									  (velocityDiff / neighbor->getDensity()) *
-									  kernelViscosityLaplacian(dist);
+									(velocityDiff / neighbor->getDensity()) *
+									kernelViscosityLaplacian(dist);
 				}
 			}
-
+	
 			// Gravity force
 			sf::Vector2f gravityForce = gravity * particle->getMass();
-
-			// Calculate total acceleration: F/mass
+	
+			// Total acceleration
 			sf::Vector2f acceleration = (pressureForce + viscosityForce + gravityForce) / particle->getMass();
-
-			// Update particle acceleration
 			particle->setAcceleration(acceleration);
 		}
 	}
