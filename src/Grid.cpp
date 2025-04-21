@@ -21,40 +21,45 @@ void Grid::insertParticle(Particle *particle)
 	cells[index].push_back(particle);
 }
 
-std::vector<Particle *> Grid::getNeighbors(float x, float y, float radius)
+std::vector<Particle*> Grid::getNeighbors(float x, float y, float radius)
 {
-	std::vector<Particle *> neighbors;
-
-	// Calculate cell coordinates and radius in cells
-	auto [cellX, cellY] = positionToCell(x, y);
-	int cellRadius = static_cast<int>(std::ceil(radius * invCellSize));
-
-	// Iterate through potential neighbor cells
-	for (int i = -cellRadius; i <= cellRadius; ++i)
-	{
-		for (int j = -cellRadius; j <= cellRadius; ++j)
-		{
-			int neighborCellX = cellX + i;
-			int neighborCellY = cellY + j;
-
-			// Skip if outside grid bounds
-			if (neighborCellX < 0 || neighborCellX >= gridWidth ||
-				neighborCellY < 0 || neighborCellY >= gridHeight)
-			{
-				continue;
-			}
-
-			int cellIdx = getCellIndex(neighborCellX, neighborCellY);
-			auto it = cells.find(cellIdx);
-			if (it != cells.end())
-			{
-				// Add all particles from this cell
-				neighbors.insert(neighbors.end(), it->second.begin(), it->second.end());
-			}
-		}
-	}
-
-	return neighbors;
+    std::vector<Particle*> neighbors;
+    
+    // Calculate cell coordinates and radius in cells
+    auto [cellX, cellY] = positionToCell(x, y);
+    int cellRadius = static_cast<int>(std::ceil(radius * invCellSize));
+    float radiusSquared = radius * radius;  // For distance check optimization
+    
+    // Iterate through potential neighbor cells
+    for (int i = -cellRadius; i <= cellRadius; ++i) {
+        for (int j = -cellRadius; j <= cellRadius; ++j) {
+            int neighborCellX = cellX + i;
+            int neighborCellY = cellY + j;
+            
+            // Skip if outside grid bounds
+            if (neighborCellX < 0 || neighborCellX >= gridWidth ||
+                neighborCellY < 0 || neighborCellY >= gridHeight) {
+                continue;
+            }
+            
+            int cellIdx = getCellIndex(neighborCellX, neighborCellY);
+            auto it = cells.find(cellIdx);
+            if (it != cells.end()) {
+                // Filter particles by actual distance
+                for (Particle* p : it->second) {
+                    float dx = x - p->getPosition().x;
+                    float dy = y - p->getPosition().y;
+                    float distSquared = dx*dx + dy*dy;
+                    
+                    if (distSquared <= radiusSquared) {
+                        neighbors.push_back(p);
+                    }
+                }
+            }
+        }
+    }
+    
+    return neighbors;
 }
 
 std::vector<Particle *> Grid::getNeighbors(const Particle *particle, float radius)

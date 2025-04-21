@@ -149,25 +149,15 @@ namespace sph
 		const float minDist = PARTICLE_RADIUS * 2.0f; // Minimum distance between particles
 		const float minDistSq = minDist * minDist;
 
-		// We'll use our grid to find potential collision pairs efficiently
-		grid->clear();
-		for (auto *particle : particles)
-		{
-			grid->insertParticle(particle);
-		}
-
-		// Check each particle against potential neighbors
+		// Check each particle against cached neighbors
 		std::vector<std::tuple<Particle *, sf::Vector2f, sf::Vector2f>> updates;
 
-		for (size_t i = 0; i < particles.size(); ++i)
+		for (auto *p1 : particles)
 		{
-			Particle *p1 = particles[i];
 			sf::Vector2f pos1 = p1->getPosition();
 
-			// Get potential collision candidates from grid
-			std::vector<Particle *> neighbors = grid->getNeighbors(p1, minDist * 1.5f); // slightly larger radius for safety
-
-			for (auto *p2 : neighbors)
+			// Use the cached neighbors instead of calling getNeighbors again
+			for (auto *p2 : p1->cachedNeighbors)
 			{
 				// Skip self-collision
 				if (p1 == p2)

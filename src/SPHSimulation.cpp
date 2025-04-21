@@ -54,115 +54,87 @@ namespace sph
 			auto densityPressureTask = [this](const std::vector<Particle *> &localParticles,
 											  const std::vector<Particle *> &ghostParticles)
 			{
-				// Process density and pressure using local and ghost particles
-				for (auto *particle : localParticles)
+				// Process density and pressure using local particles
+				physics->computeDensityPressure(localParticles, particles->getGrid());
+
+				// Process ghost particles if needed
+				if (!ghostParticles.empty())
 				{
-					float density = 0.0f;
-					// Use the precomputed neighbors
-					auto &neighbors = particle->cachedNeighbors;
-
-					// Consider both regular neighbors and ghost particles
-					auto processNeighbor = [&](Particle *neighbor)
+					for (auto *particle : localParticles)
 					{
-						sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
-						float distSqr = r.x * r.x + r.y * r.y;
+						float density = particle->getDensity();
 
-						if (distSqr < smoothingRadius * smoothingRadius)
+						// Process only ghost neighbors, as regular neighbors were already processed
+						for (auto *ghost : ghostParticles)
 						{
-							density += neighbor->getMass() * physics->kernelPoly6(distSqr);
+							sf::Vector2f r = particle->getPosition() - ghost->getPosition();
+							float distSqr = r.x * r.x + r.y * r.y;
+
+							if (distSqr < smoothingRadius * smoothingRadius)
+							{
+								density += ghost->getMass() * physics->kernelPoly6(distSqr);
+							}
 						}
-					};
 
-					// Process regular neighbors
-					for (auto *neighbor : neighbors)
-					{
-						processNeighbor(neighbor);
+						// Update particle density and pressure
+						particle->setDensity(std::max(density, physics->getRestDensity()));
+						float pressure = physics->getGasConstant() * (particle->getDensity() - physics->getRestDensity());
+						particle->setPressure(std::max(0.0f, pressure));
 					}
-
-					// Process ghost neighbors
-					for (auto *ghost : ghostParticles)
-					{
-						processNeighbor(ghost);
-					}
-
-					// Update particle density and pressure
-					particle->setDensity(std::max(density, physics->getRestDensity()));
-					float pressure = physics->getGasConstant() * (particle->getDensity() - physics->getRestDensity());
-					particle->setPressure(std::max(0.0f, pressure));
 				}
 			};
 
 			auto forcesTask = [this](const std::vector<Particle *> &localParticles,
 									 const std::vector<Particle *> &ghostParticles)
 			{
-				// Process forces using local and ghost particles
-				for (auto *particle : localParticles)
+				// Process forces using local particles
+				physics->computeForces(localParticles, particles->getGrid());
+
+				// Process ghost particles if needed
+				if (!ghostParticles.empty())
 				{
-					sf::Vector2f pressureForce = {0.0f, 0.0f};
-					sf::Vector2f viscosityForce = {0.0f, 0.0f};
-
-					// Use the precomputed neighbors instead of calling getNeighbors again
-					auto &neighbors = particle->cachedNeighbors;
-
-					auto processNeighbor = [&](Particle *neighbor)
+					for (auto *particle : localParticles)
 					{
-						// Skip self
-						if (particle == neighbor)
-							return;
+						sf::Vector2f pressureForce = particle->getAcceleration() * particle->getMass();
+						sf::Vector2f viscosityForce = {0.0f, 0.0f};
+						sf::Vector2f gravityForce = physics->getGravity() * particle->getMass();
 
-						sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
-						float dist = std::sqrt(r.x * r.x + r.y * r.y);
-
-						if (dist > 0.0f && dist < smoothingRadius)
+						// Process only ghost particles, regular neighbors were already processed
+						for (auto *ghost : ghostParticles)
 						{
-							// Normalized direction
-							sf::Vector2f dir = r / dist;
+							sf::Vector2f r = particle->getPosition() - ghost->getPosition();
+							float dist = std::sqrt(r.x * r.x + r.y * r.y);
 
-							// Pressure force
-							float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
-												 neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
-							pressureForce -= neighbor->getMass() * pressureTerm * physics->kernelGradSpiky(dist, dir);
+							if (dist > 0.0f && dist < smoothingRadius)
+							{
+								// Normalized direction
+								sf::Vector2f dir = r / dist;
 
-							// Viscosity force
-							sf::Vector2f velocityDiff = neighbor->getVelocity() - particle->getVelocity();
-							viscosityForce += physics->getViscosity() * neighbor->getMass() *
-											  (velocityDiff / neighbor->getDensity()) *
-											  physics->kernelViscosityLaplacian(dist);
+								// Pressure force
+								float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
+													 ghost->getPressure() / (ghost->getDensity() * ghost->getDensity());
+								pressureForce -= ghost->getMass() * pressureTerm * physics->kernelGradSpiky(dist, dir);
+
+								// Viscosity force
+								sf::Vector2f velocityDiff = ghost->getVelocity() - particle->getVelocity();
+								viscosityForce += physics->getViscosity() * ghost->getMass() *
+												  (velocityDiff / ghost->getDensity()) *
+												  physics->kernelViscosityLaplacian(dist);
+							}
 						}
-					};
 
-					// Process regular neighbors
-					for (auto *neighbor : neighbors)
-					{
-						processNeighbor(neighbor);
+						// Total acceleration - add ghost particle contributions to existing acceleration
+						sf::Vector2f acceleration = (pressureForce + viscosityForce + gravityForce) / particle->getMass();
+						particle->setAcceleration(acceleration);
 					}
-
-					// Process ghost neighbors
-					for (auto *ghost : ghostParticles)
-					{
-						processNeighbor(ghost);
-					}
-
-					// Gravity force
-					sf::Vector2f gravityForce = physics->getGravity() * particle->getMass();
-
-					// Total acceleration
-					sf::Vector2f acceleration = (pressureForce + viscosityForce + gravityForce) / particle->getMass();
-					particle->setAcceleration(acceleration);
 				}
 			};
 
-			auto integrateTask = [dt](const std::vector<Particle *> &localParticles,
-									  const std::vector<Particle *> &)
+			auto integrateTask = [this, dt](const std::vector<Particle *> &localParticles,
+				const std::vector<Particle *> &)
 			{
-				// Integrate particle positions and velocities
-				for (auto *particle : localParticles)
-				{
-					// Semi-implicit Euler integration
-					sf::Vector2f velocity = particle->getVelocity() + particle->getAcceleration() * dt;
-					particle->setVelocity(velocity);
-					particle->setPosition(particle->getPosition() + velocity * dt);
-				}
+			// Use existing integration method
+			physics->integrate(localParticles, dt);
 			};
 
 			// Execute tasks in parallel
