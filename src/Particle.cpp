@@ -26,11 +26,21 @@ void Particle::update(float dt)
 	// Update position
 	position += velocity * dt;
 
-	// Update color based on velocity
-	updateColor();
+	// Update color based on velocity - but only every few frames
+	static int frameCount = 0;
+	frameCount = (frameCount + 1) % 20; // Update color every 5 frames
+	if (frameCount == 0)
+	{
+		updateColor();
+	}
 
 	// Update shape position for rendering
 	shape.setPosition(position);
+}
+
+void Particle::updateVisuals()
+{
+	updateColor();
 }
 
 void Particle::draw(sf::RenderWindow &window)
@@ -40,18 +50,39 @@ void Particle::draw(sf::RenderWindow &window)
 
 void Particle::updateColor()
 {
-	// Calculate speed of the particle
-	float speed = std::sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+	// Use squared speed to avoid sqrt when possible
+	float speedSq = velocity.x * velocity.x + velocity.y * velocity.y;
+
+	// Early exit for very slow particles
+	if (speedSq < 1.0f)
+	{
+		// If barely moving, just use base color (avoid expensive calculations)
+		shape.setFillColor(baseColor);
+		shape.setOutlineColor(sf::Color(10, 50, 150, 100));
+		shape.setOutlineThickness(0.5f);
+
+		// Reset radius if not at default
+		float currentRadius = shape.getRadius();
+		if (std::abs(currentRadius - RADIUS) > 0.01f)
+		{
+			shape.setRadius(RADIUS);
+			shape.setOrigin({RADIUS, RADIUS});
+		}
+		return;
+	}
+
+	// For moving particles, compute the full color gradient
+	float speed = std::sqrt(speedSq);
+	constexpr float MAX_SPEED = 100.0f;
+	float speedFactor = speed / MAX_SPEED;
+	if (speedFactor > 1.0f)
+		speedFactor = 1.0f;
 
 	// Map speed to a color gradient
 	// - Low speed: blue (cold)
 	// - Medium speed: light blue/cyan
 	// - High speed: white with blue tint
 
-	constexpr float MAX_SPEED = 100.0f;
-	float speedFactor = std::min(speed / MAX_SPEED, 1.0f);
-
-	// Blue to white gradient
 	int r = baseColor.r + static_cast<int>((255 - baseColor.r) * speedFactor * 0.8f);
 	int g = baseColor.g + static_cast<int>((255 - baseColor.g) * speedFactor);
 	int b = baseColor.b + static_cast<int>((255 - baseColor.b) * speedFactor * 0.4f);

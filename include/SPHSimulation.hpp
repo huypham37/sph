@@ -120,6 +120,10 @@ namespace sph
 		// Load balance visualization
 		void setVisualizeLoadBalance(bool enabled);
 		bool isVisualizeLoadBalance() const;
+        
+        // Debug options
+        void setDebugThreads(bool enabled);
+        bool isDebugThreads() const;
 
 	private:
 		// Main simulation components

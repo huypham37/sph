@@ -2,12 +2,27 @@
 
 #include <vector>
 #include <memory>
+#include <map>
 #include "Particle.hpp"
 
 namespace sph
 {
 	namespace parallel
 	{
+		/**
+		 * @brief Enumeration of possible boundary regions in a 2D domain
+		 */
+		enum class BoundaryRegion
+		{
+			LEFT,
+			RIGHT,
+			TOP,
+			BOTTOM,
+			TOP_LEFT,
+			TOP_RIGHT,
+			BOTTOM_LEFT,
+			BOTTOM_RIGHT
+		};
 
 		/**
 		 * @brief Represents a subdomain in the simulation space
@@ -39,6 +54,11 @@ namespace sph
 			void clearGhostParticles();
 			const std::vector<Particle *> &getGhostParticles() const { return ghostParticles; }
 
+			// Boundary region management
+			void updateBoundaryRegions(float ghostRegionWidth);
+			const std::vector<Particle *> &getParticlesInBoundaryRegion(BoundaryRegion region) const;
+			std::vector<BoundaryRegion> getSharedBoundaryRegions(const Subdomain &other, float ghostRegionWidth) const;
+
 			// Performance metrics
 			float getLastComputationTime() const { return lastComputationTime; }
 			void setLastComputationTime(float time) { lastComputationTime = time; }
@@ -53,8 +73,9 @@ namespace sph
 			float height; // Height of subdomain
 			int id;		  // Unique identifier
 
-			std::vector<Particle *> particles;		// Particles owned by this subdomain
-			std::vector<Particle *> ghostParticles; // Particles from neighboring subdomains
+			std::vector<Particle *> particles;									 // Particles owned by this subdomain
+			std::vector<Particle *> ghostParticles;								 // Particles from neighboring subdomains
+			std::map<BoundaryRegion, std::vector<Particle *>> boundaryParticles; // Particles near boundaries
 
 			float lastComputationTime; // Time taken to process this subdomain (for load balancing)
 		};

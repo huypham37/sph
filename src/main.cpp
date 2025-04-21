@@ -11,7 +11,7 @@ constexpr int WINDOW_HEIGHT = 600;
 
 // Simulation parameters
 constexpr float SIMULATION_TIMESTEP = 0.005f;
-constexpr int DEFAULT_PARTICLE_COUNT = 1000;
+constexpr int DEFAULT_PARTICLE_COUNT = 2000;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
 
 // Particle adjustment parameters

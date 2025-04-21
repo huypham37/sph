@@ -1,6 +1,8 @@
 #include "parallel/BoundaryManager.hpp"
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <chrono>
 
 namespace sph
 {
@@ -15,6 +17,12 @@ namespace sph
 		{
 			// Clear all ghost particles first
 			clearGhostParticles(subdomains);
+
+			// Update boundary regions for all subdomains
+			for (auto &subdomain : subdomains)
+			{
+				subdomain->updateBoundaryRegions(ghostRegionWidth);
+			}
 
 			// For each pair of subdomains, exchange particles near boundaries
 			for (size_t i = 0; i < subdomains.size(); ++i)
@@ -32,8 +40,15 @@ namespace sph
 					// Check if these subdomains are neighbors
 					if (areNeighbors(*source, *target))
 					{
+						// Time measurement for finding particles to share
+						auto startTime = std::chrono::high_resolution_clock::now();
+						
 						// Find particles in source subdomain that need to be shared with target
 						auto particlesToShare = findParticlesToShare(*source, *target);
+						
+						auto endTime = std::chrono::high_resolution_clock::now();
+						auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+						
 
 						// Add these particles as ghost particles to the target subdomain
 						for (auto *particle : particlesToShare)
@@ -83,21 +98,30 @@ namespace sph
 				return particlesToShare;
 			}
 
-			// Get extended bounds of target subdomain
-			float tx1 = target.getX() - ghostRegionWidth;
-			float ty1 = target.getY() - ghostRegionWidth;
-			float tx2 = target.getX() + target.getWidth() + ghostRegionWidth;
-			float ty2 = target.getY() + target.getHeight() + ghostRegionWidth;
+			// Get shared boundary regions between source and target
+			auto sharedRegions = source.getSharedBoundaryRegions(target, ghostRegionWidth);
 
-			// Check each particle in source subdomain
-			for (const auto *particle : source.getParticles())
+			// For each shared region, check particles in that region
+			for (const auto &region : sharedRegions)
 			{
-				sf::Vector2f pos = particle->getPosition();
+				const auto &regionParticles = source.getParticlesInBoundaryRegion(region);
 
-				// If particle is within ghost region of target, add it
-				if (pos.x >= tx1 && pos.x < tx2 && pos.y >= ty1 && pos.y < ty2)
+				// Get extended bounds of target subdomain
+				float tx1 = target.getX() - ghostRegionWidth;
+				float ty1 = target.getY() - ghostRegionWidth;
+				float tx2 = target.getX() + target.getWidth() + ghostRegionWidth;
+				float ty2 = target.getY() + target.getHeight() + ghostRegionWidth;
+
+				// Only add particles that are actually within the extended target boundary
+				for (const auto *particle : regionParticles)
 				{
-					particlesToShare.push_back(const_cast<Particle *>(particle));
+					sf::Vector2f pos = particle->getPosition();
+
+					// If particle is within ghost region of target, add it
+					if (pos.x >= tx1 && pos.x < tx2 && pos.y >= ty1 && pos.y < ty2)
+					{
+						particlesToShare.push_back(const_cast<Particle *>(particle));
+					}
 				}
 			}
 

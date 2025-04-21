@@ -10,6 +10,9 @@ public:
 	
 	std::vector<Particle*> cachedNeighbors;
 	void update(float dt);
+	// Update the particle color based on velocity
+	void updateColor();
+	void updateVisuals();
 	void draw(sf::RenderWindow &window);
 
 	sf::Vector2f getPosition() const { return position; }
@@ -26,9 +29,6 @@ public:
 	void setPressure(float p) { pressure = p; }
 
 private:
-	// Update the particle color based on velocity
-	void updateColor();
-
 	sf::Vector2f position;
 	sf::Vector2f velocity;
 	sf::Vector2f acceleration;
@@ -40,4 +40,5 @@ private:
 
 	static constexpr float RADIUS = 4.0f;
 	static constexpr float DEFAULT_MASS = 1.0f;
+	
 };

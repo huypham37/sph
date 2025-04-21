@@ -93,7 +93,7 @@ namespace sph
 		// Create subdomains if they don't exist yet
 		if (subdomains.empty())
 		{
-			subdomains = domainDecomposer->createDecomposition(width, height, numThreads);
+			subdomains = domainDecomposer->createDecomposition(width, height, numThreads * 3);
 		}
 
 		// Assign particles to subdomains
@@ -153,26 +153,17 @@ namespace sph
 			return;
 		}
 
-		// Process each subdomain in parallel using OpenMP
-		#pragma omp parallel for schedule(dynamic)
+// Process each subdomain in parallel using OpenMP
+#pragma omp parallel for schedule(dynamic)
 		for (int i = 0; i < static_cast<int>(subdomains.size()); i++)
 		{
 			auto &subdomain = subdomains[i];
 
-			// Start timing for performance measurement
-			auto startTime = std::chrono::high_resolution_clock::now();
-
-			// Get regular and ghost particles for this subdomain
 			const auto &subdomainParticles = subdomain->getParticles();
 			const auto &ghostParticles = subdomain->getGhostParticles();
 
 			// Execute the task on this subdomain's particles
 			task(subdomainParticles, ghostParticles);
-
-			// Calculate and record computation time for load balancing
-			auto endTime = std::chrono::high_resolution_clock::now();
-			std::chrono::duration<float> elapsed = endTime - startTime;
-			subdomain->setLastComputationTime(elapsed.count());
 		}
 
 		// Check if load balancing is needed after computation

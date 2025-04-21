@@ -40,6 +40,7 @@ namespace sph
 			return subdomains;
 		}
 
+		// #TODO the assignment is cleared and search for all partciles
 		void GridDomainDecomposer::assignParticlesToSubdomains(
 			const std::vector<Particle *> &particles,
 			std::vector<std::unique_ptr<Subdomain>> &subdomains)
