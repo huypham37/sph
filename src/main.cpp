@@ -6,12 +6,12 @@
 #include "SPHSimulation.hpp" // Updated to use new class
 
 // Window dimensions
-constexpr int WINDOW_WIDTH = 800;
-constexpr int WINDOW_HEIGHT = 600;
+constexpr int WINDOW_WIDTH = 1200;
+constexpr int WINDOW_HEIGHT = 800;
 
 // Simulation parameters
-constexpr float SIMULATION_TIMESTEP = 0.005f;
-constexpr int DEFAULT_PARTICLE_COUNT = 4000;
+constexpr float SIMULATION_TIMESTEP = 1.0f / 60;
+constexpr int DEFAULT_PARTICLE_COUNT = 3000;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
 
 // Particle adjustment parameters

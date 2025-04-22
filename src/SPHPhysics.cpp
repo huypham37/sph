@@ -5,6 +5,7 @@
 #include <tuple>
 #include <unordered_set>
 #include <omp.h>
+#include <iostream>
 
 namespace sph
 {
@@ -100,70 +101,101 @@ namespace sph
     }
 
     void SPHPhysics::resolveCollisions(const std::vector<Particle*>& particles, Grid* grid, float width, float height) {
-        constexpr float PARTICLE_RADIUS = 4.0f;
-        constexpr float COLLISION_DAMPING = 0.5f;
-        const float minDist = PARTICLE_RADIUS * 2.0f;
-        const float minDistSq = minDist * minDist;
-        const int maxIterations = 3;
-
-        // Boundary collisions
-        #pragma omp parallel for
-        for (size_t i = 0; i < particles.size(); ++i) {
-            auto* particle = particles[i];
-            sf::Vector2f pos = particle->getPosition();
-            sf::Vector2f vel = particle->getVelocity();
-            if (pos.x < PARTICLE_RADIUS) { pos.x = PARTICLE_RADIUS; vel.x = -vel.x * boundaryDamping; }
-            if (pos.x > width - PARTICLE_RADIUS) { pos.x = width - PARTICLE_RADIUS; vel.x = -vel.x * boundaryDamping; }
-            if (pos.y < PARTICLE_RADIUS) { pos.y = PARTICLE_RADIUS; vel.y = -vel.y * boundaryDamping; }
-            if (pos.y > height - PARTICLE_RADIUS) { pos.y = height - PARTICLE_RADIUS; vel.y = -vel.y * boundaryDamping; }
-            particle->setPosition(pos);
-            particle->setVelocity(vel);
-        }
-
-        // Particle-particle collisions with multiple iterations
-        for (int iter = 0; iter < maxIterations; ++iter) {
-            std::vector<std::tuple<Particle*, sf::Vector2f, sf::Vector2f>> globalUpdates;
-            #pragma omp parallel 
-            {
-                std::vector<std::tuple<Particle*, sf::Vector2f, sf::Vector2f>> localUpdates;
-                #pragma omp for nowait
-                for (size_t i = 0; i < particles.size(); ++i) {
-                    auto* p1 = particles[i];
-                    sf::Vector2f pos1 = p1->getPosition();
-                    for (auto* p2 : p1->cachedNeighbors) {
-                        if (p1 == p2) continue;
-                        sf::Vector2f pos2 = p2->getPosition();
-                        sf::Vector2f delta = pos1 - pos2;
-                        float distSq = delta.x * delta.x + delta.y * delta.y;
-                        if (distSq < minDistSq && distSq > 1e-6f) {
-                            float dist = std::sqrt(distSq);
-                            float penetration = minDist - dist;
-                            sf::Vector2f normal = delta / dist;
-                            sf::Vector2f correction = normal * (penetration * 0.75f);
-                            sf::Vector2f v1 = p1->getVelocity();
-                            sf::Vector2f v2 = p2->getVelocity();
-                            sf::Vector2f relVel = v1 - v2;
-                            float velAlongNormal = relVel.x * normal.x + relVel.y * normal.y;
-                            sf::Vector2f impulse = {0.0f, 0.0f};
-                            if (velAlongNormal < 0) {
-                                impulse = normal * (-velAlongNormal * COLLISION_DAMPING);
-                            }
-                            impulse += normal * (penetration * 0.1f);
-                            localUpdates.push_back(std::make_tuple(p1, pos1 + correction, v1 + impulse));
-                            localUpdates.push_back(std::make_tuple(p2, pos2 - correction, v2 - impulse));
-                        }
-                    }
-                }
-                #pragma omp critical
-                globalUpdates.insert(globalUpdates.end(), localUpdates.begin(), localUpdates.end());
-            }
-            for (const auto& update : globalUpdates) {
-                Particle* p = std::get<0>(update);
-                p->setPosition(std::get<1>(update));
-                p->setVelocity(std::get<2>(update));
-            }
-        }
-    }
+		constexpr float PARTICLE_RADIUS = 4.0f;
+		constexpr float COLLISION_DAMPING = 0.5f;
+		const float minDist = PARTICLE_RADIUS * 2.0f;
+		const float minDistSq = minDist * minDist;
+		float restitution = 0.5f;
+	
+		// Compute overlap severity and density metrics
+		float maxOverlap = 0.0f;
+		float avgNeighbors = 0.0f;
+		int maxNeighbors = 0;
+		for (auto* p : particles) {
+			int neighborCount = p->cachedNeighbors.size();
+			avgNeighbors += neighborCount;
+			maxNeighbors = std::max(maxNeighbors, neighborCount);
+			for (auto* p2 : p->cachedNeighbors) {
+				if (p == p2) continue;
+				sf::Vector2f delta = p->getPosition() - p2->getPosition();
+				float distSq = delta.x * delta.x + delta.y * delta.y;
+				if (distSq < minDistSq && distSq > 1e-6f) {
+					float dist = std::sqrt(distSq);
+					float overlap = minDist - dist;
+					maxOverlap = std::max(maxOverlap, overlap);
+				}
+			}
+		}
+		avgNeighbors /= particles.size();
+	
+		// Adaptive maxIterations: base + density + overlap severity
+		int maxIterations = 3 + static_cast<int>(std::ceil(avgNeighbors / 4.0f) + maxOverlap / PARTICLE_RADIUS);
+		maxIterations = std::min(maxIterations, 15); // Higher cap for dense regions
+		std::cout << "Adaptive max iterations: " << maxIterations 
+				  << " (avg neighbors: " << avgNeighbors 
+				  << ", max neighbors: " << maxNeighbors 
+				  << ", max overlap: " << maxOverlap << ")" << std::endl;
+	
+		// Boundary collisions
+		#pragma omp parallel for
+		for (size_t i = 0; i < particles.size(); ++i) {
+			auto* particle = particles[i];
+			sf::Vector2f pos = particle->getPosition();
+			sf::Vector2f vel = particle->getVelocity();
+			if (pos.x < PARTICLE_RADIUS) { pos.x = PARTICLE_RADIUS; vel.x = -vel.x * boundaryDamping; }
+			if (pos.x > width - PARTICLE_RADIUS) { pos.x = width - PARTICLE_RADIUS; vel.x = -vel.x * boundaryDamping; }
+			if (pos.y < PARTICLE_RADIUS) { pos.y = PARTICLE_RADIUS; vel.y = -vel.y * boundaryDamping; }
+			if (pos.y > height - PARTICLE_RADIUS) { pos.y = height - PARTICLE_RADIUS; vel.y = -vel.y * boundaryDamping; }
+			particle->setPosition(pos);
+			particle->setVelocity(vel);
+		}
+	
+		// Particle-particle collisions with adaptive iterations
+		for (int iter = 0; iter < maxIterations; ++iter) {
+			std::vector<std::tuple<Particle*, sf::Vector2f, sf::Vector2f>> globalUpdates;
+			#pragma omp parallel 
+			{
+				std::vector<std::tuple<Particle*, sf::Vector2f, sf::Vector2f>> localUpdates;
+				#pragma omp for nowait
+				for (size_t i = 0; i < particles.size(); ++i) {
+					auto* p1 = particles[i];
+					sf::Vector2f pos1 = p1->getPosition();
+					for (auto* p2 : p1->cachedNeighbors) {
+						if (p1 == p2) continue;
+						sf::Vector2f pos2 = p2->getPosition();
+						sf::Vector2f delta = pos1 - pos2;
+						float distSq = delta.x * delta.x + delta.y * delta.y;
+						if (distSq < minDistSq && distSq > 1e-6f) {
+							float dist = std::sqrt(distSq);
+							float penetration = minDist - dist;
+							sf::Vector2f normal = delta / dist;
+							// Stronger correction inspired by Simulator
+							sf::Vector2f correction = normal * (penetration * 0.25f); // Match Simulator's 0.25f delta
+							sf::Vector2f v1 = p1->getVelocity();
+							sf::Vector2f v2 = p2->getVelocity();
+							sf::Vector2f relVel = v1 - v2;
+							float velAlongNormal = relVel.x * normal.x + relVel.y * normal.y;
+							sf::Vector2f impulse = {0.0f, 0.0f};
+							if (velAlongNormal < 0) {
+								float impulseMagnitude = -(1.0f) * velAlongNormal / 2.0f;
+								impulse = normal * impulseMagnitude;
+							}
+							impulse += normal * (penetration * 0.05f); // Fixed correction factor
+							localUpdates.push_back(std::make_tuple(p1, pos1 + correction, v1 + impulse));
+							localUpdates.push_back(std::make_tuple(p2, pos2 - correction, v2 - impulse));
+						}
+					}
+				}
+				#pragma omp critical
+				globalUpdates.insert(globalUpdates.end(), localUpdates.begin(), localUpdates.end());
+			}
+			for (const auto& update : globalUpdates) {
+				Particle* p = std::get<0>(update);
+				p->setPosition(std::get<1>(update));
+				p->setVelocity(std::get<2>(update));
+			}
+		}
+	}
 
     float SPHPhysics::kernelPoly6(float distSquared)
     {

@@ -27,144 +27,64 @@ namespace sph
 
 	void SPHSimulation::update(float dt)
 	{
-		// Update grid for spatial partitioning
+		constexpr int sub_steps = 2; // Minimal substeps for stability
+		float sub_dt = dt / sub_steps;
+
+		// Update grid and cache neighbors once per frame
 		particles->updateGrid();
-
-		if (parallelExecutor->isParallelizationEnabled() && particles->getParticleCount() > 0)
-		{
-			// Update domain decomposition for parallel processing
-			parallelExecutor->updateDecomposition(particles->getParticles());
-
-			// First, precompute neighbors for all particles - this is now a separate parallel task
-			auto precomputeNeighborsTask = [this](const std::vector<Particle *> &localParticles,
-												  const std::vector<Particle *> &ghostParticles)
-			{
-				// For each particle in this subdomain, store its neighbors
-				for (auto *particle : localParticles)
-				{
-					// Store the computed neighbors directly in the particle
-					particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius);
-				}
-			};
-
-			// Execute neighbor computation task in parallel
-			parallelExecutor->executeParallel(precomputeNeighborsTask, particles->getParticles());
-
-			// Execute physics computations in parallel - now using cached neighbors
-			auto densityPressureTask = [this](const std::vector<Particle *> &localParticles,
-											  const std::vector<Particle *> &ghostParticles)
-			{
-				// Process density and pressure using local particles
-				physics->computeDensityPressure(localParticles, particles->getGrid());
-
-				// Process ghost particles if needed
-				if (!ghostParticles.empty())
-				{
-					for (auto *particle : localParticles)
-					{
-						float density = particle->getDensity();
-
-						// Process only ghost neighbors, as regular neighbors were already processed
-						for (auto *ghost : ghostParticles)
-						{
-							sf::Vector2f r = particle->getPosition() - ghost->getPosition();
-							float distSqr = r.x * r.x + r.y * r.y;
-
-							if (distSqr < smoothingRadius * smoothingRadius)
-							{
-								density += ghost->getMass() * physics->kernelPoly6(distSqr);
-							}
-						}
-
-						// Update particle density and pressure
-						particle->setDensity(std::max(density, physics->getRestDensity()));
-						float pressure = physics->getGasConstant() * (particle->getDensity() - physics->getRestDensity());
-						particle->setPressure(std::max(0.0f, pressure));
-					}
-				}
-			};
-
-			auto forcesTask = [this](const std::vector<Particle *> &localParticles,
-									 const std::vector<Particle *> &ghostParticles)
-			{
-				// Process forces using local particles
-				physics->computeForces(localParticles, particles->getGrid());
-
-				// Process ghost particles if needed
-				if (!ghostParticles.empty())
-				{
-					for (auto *particle : localParticles)
-					{
-						sf::Vector2f pressureForce = particle->getAcceleration() * particle->getMass();
-						sf::Vector2f viscosityForce = {0.0f, 0.0f};
-						sf::Vector2f gravityForce = physics->getGravity() * particle->getMass();
-
-						// Process only ghost particles, regular neighbors were already processed
-						for (auto *ghost : ghostParticles)
-						{
-							sf::Vector2f r = particle->getPosition() - ghost->getPosition();
-							float dist = std::sqrt(r.x * r.x + r.y * r.y);
-
-							if (dist > 0.0f && dist < smoothingRadius)
-							{
-								// Normalized direction
-								sf::Vector2f dir = r / dist;
-
-								// Pressure force
-								float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
-													 ghost->getPressure() / (ghost->getDensity() * ghost->getDensity());
-								pressureForce -= ghost->getMass() * pressureTerm * physics->kernelGradSpiky(dist, dir);
-
-								// Viscosity force
-								sf::Vector2f velocityDiff = ghost->getVelocity() - particle->getVelocity();
-								viscosityForce += physics->getViscosity() * ghost->getMass() *
-												  (velocityDiff / ghost->getDensity()) *
-												  physics->kernelViscosityLaplacian(dist);
-							}
-						}
-
-						// Total acceleration - add ghost particle contributions to existing acceleration
-						sf::Vector2f acceleration = (pressureForce + viscosityForce + gravityForce) / particle->getMass();
-						particle->setAcceleration(acceleration);
-					}
-				}
-			};
-
-			auto integrateTask = [this, dt](const std::vector<Particle *> &localParticles,
-				const std::vector<Particle *> &)
-			{
-			// Use existing integration method
-			physics->integrate(localParticles, dt);
-			};
-
-			// Execute tasks in parallel
-			parallelExecutor->executeParallel(densityPressureTask, particles->getParticles());
-			parallelExecutor->executeParallel(forcesTask, particles->getParticles());
-			parallelExecutor->executeParallel(integrateTask, particles->getParticles());
-		}
-		else
-		{
-			// Sequential execution path - we should also optimize this path
-			// First, cache neighbors for all particles
-			for (auto *particle : particles->getParticles())
-			{
-				particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius);
-			}
-
-			// Modified sequential methods to use cached neighbors
-			physics->computeDensityPressure(particles->getParticles(), particles->getGrid());
-			physics->computeForces(particles->getParticles(), particles->getGrid());
-			physics->integrate(particles->getParticles(), dt);
-		}
-
-		// Collision resolution is always sequential
-		physics->resolveCollisions(particles->getParticles(), particles->getGrid(), width, height);
-
-		// Update particles for rendering
 		for (auto *particle : particles->getParticles())
 		{
-			particle->update(dt);
+			particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius * 2);
 		}
+
+		// Substep loop for physics
+		for (int i = 0; i < sub_steps; ++i)
+		{
+			if (parallelExecutor->isParallelizationEnabled() && particles->getParticleCount() > 1000) // Threshold for parallelization
+			{
+				// Density and pressure task
+				auto densityPressureTask = [this](const std::vector<Particle *> &localParticles,
+												  const std::vector<Particle *> &)
+				{
+					physics->computeDensityPressure(localParticles, particles->getGrid());
+				};
+
+				// Forces task
+				auto forcesTask = [this](const std::vector<Particle *> &localParticles,
+										 const std::vector<Particle *> &)
+				{
+					physics->computeForces(localParticles, particles->getGrid());
+				};
+
+				// Integration task
+				auto integrateTask = [this, sub_dt](const std::vector<Particle *> &localParticles,
+													const std::vector<Particle *> &)
+				{
+					physics->integrate(localParticles, sub_dt);
+				};
+
+				// Execute in parallel
+				parallelExecutor->executeParallel(densityPressureTask, particles->getParticles());
+				parallelExecutor->executeParallel(forcesTask, particles->getParticles());
+				parallelExecutor->executeParallel(integrateTask, particles->getParticles());
+			}
+			else
+			{
+				// Sequential execution for small particle counts
+				physics->computeDensityPressure(particles->getParticles(), particles->getGrid());
+				physics->computeForces(particles->getParticles(), particles->getGrid());
+				physics->integrate(particles->getParticles(), sub_dt);
+			}
+
+			// Update particle positions
+			for (auto *particle : particles->getParticles())
+			{
+				particle->update(sub_dt);
+			}
+		}
+
+		// Resolve collisions once per frame
+		physics->resolveCollisions(particles->getParticles(), particles->getGrid(), width, height);
 	}
 
 	void SPHSimulation::draw(sf::RenderWindow &window)
