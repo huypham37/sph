@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 
+
 namespace sph
 {
 
@@ -120,7 +121,7 @@ namespace sph
 		reset();
 
 		// Clamp dam dimensions to reasonable values
-		damWidth = 0.1f;
+		damWidth = 0.133f;
 		damHeight = 1.0f;
 
 		// Calculate dam dimensions in world units

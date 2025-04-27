@@ -11,7 +11,7 @@ constexpr int WINDOW_HEIGHT = 500;
 
 // Simulation parameters
 constexpr float SIMULATION_TIMESTEP = 0.001f;
-constexpr int DEFAULT_PARTICLE_COUNT = 1000;
+constexpr int DEFAULT_PARTICLE_COUNT = 800;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
 constexpr float GRAVITY_Y = 500.0f;
 

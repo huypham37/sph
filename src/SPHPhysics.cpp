@@ -13,8 +13,8 @@ namespace sph
         : h(14.0f),
           h2(h * h),
           viscosityCoefficient(0.1f),
-          gasConstant(35000.0f),
-          restDensity(0.7f),
+          gasConstant(5000000.0f), // this too large leaves too high pressure
+          restDensity(0.9f),
           boundaryDamping(0.3f),
           gamma(7.0f),
           timeStepCounter(0)
@@ -116,7 +116,7 @@ namespace sph
                           << "Grid neighbors: " << particle->cachedNeighbors.size()
                           << ", h-radius neighbors: " << realNeighborCount
                           << ", Density: " << particle->getDensity()
-                          << ", Pressure: " << particle->getPressure() 
+                          << ", Pressure: " << particle->getPressure()
                           << ", Velocity: (" << vel.x << ", " << vel.y << ")" << std::endl;
             }
         }
@@ -137,14 +137,14 @@ namespace sph
         const float h2 = h * h; // Ensure h2 is accessible (member or calculated)
 
         // --- Artificial Viscosity Parameters ---
-        const float alpha = 0.9f; // TUNABLE: Start 0.1, increase (0.3, 0.5, 1.0) if unstable/energetic
+        const float alpha = 1.0f; // TUNABLE: Start 0.1, increase (0.3, 0.5, 1.0) if unstable/energetic
         // const float beta = 0.0f;  // Often zero for liquids
         const float artificial_epsilon = 0.01f * h2; // Small term added to denominator: epsilon*h^2
 
         // Debugging flag (assuming timeStepCounter is a member variable)
         // bool shouldPrintDebug = (timeStepCounter % 1000 == 0);
 
-// #pragma omp parallel for // Can parallelize the outer loop
+        // #pragma omp parallel for // Can parallelize the outer loop
         for (size_t i = 0; i < particles.size(); ++i)
         {
             auto *particle = particles[i];
@@ -158,7 +158,8 @@ namespace sph
             float pressure_i = particle->getPressure();
 
             // Make sure density isn't too close to zero before division
-            if (density_i < EPS) density_i = EPS; // Safeguard
+            if (density_i < EPS)
+                density_i = EPS; // Safeguard
 
             for (auto *neighbor : particle->cachedNeighbors)
             {
@@ -173,7 +174,8 @@ namespace sph
                 float mass_j = neighbor->getMass();
 
                 // Make sure density isn't too close to zero before division
-                if (density_j < EPS) density_j = EPS; // Safeguard
+                if (density_j < EPS)
+                    density_j = EPS; // Safeguard
 
                 sf::Vector2f r_ij = pos_i - pos_j; // Vector from j to i
                 float distSqr = r_ij.x * r_ij.x + r_ij.y * r_ij.y;
@@ -192,9 +194,8 @@ namespace sph
                     sf::Vector2f gradW_spiky = SPIKY_GRAD_COEFF * h_r * h_r * dir_ij;
                     pressureAcceleration += mass_j * pressureTerm * gradW_spiky;
 
-
                     // --- Monaghan Artificial Viscosity Acceleration Calculation ---
-                    sf::Vector2f vel_ij = vel_i - vel_j; // Relative velocity v_i - v_j
+                    sf::Vector2f vel_ij = vel_i - vel_j;                   // Relative velocity v_i - v_j
                     float v_dot_r = vel_ij.x * r_ij.x + vel_ij.y * r_ij.y; // v_ij dot r_ij
 
                     // Only apply viscosity if particles are *approaching* each other
@@ -226,19 +227,8 @@ namespace sph
 
             // Set total acceleration = Pressure Acceleration + Viscosity Acceleration + Gravity
             particle->setAcceleration(pressureAcceleration + viscosityAcceleration + gravity);
-
-            // --- Optional Debug Output ---
-            // if (shouldPrintDebug && debugParticles.find(i) != debugParticles.end()) {
-            //     std::cout << "Step " << timeStepCounter << " - Force Particle " << i << ": "
-            //               << "PressAccel=(" << pressureAcceleration.x << "," << pressureAcceleration.y << ") "
-            //               << "ViscAccel=(" << viscosityAcceleration.x << "," << viscosityAcceleration.y << ") "
-            //               << "TotalAccel=(" << particle->getAcceleration().x << "," << particle->getAcceleration().y << ")" << std::endl;
-            // }
-            // --- End Optional Debug Output ---
-
         } // End particle loop
     } // End computeForces
-
 
     void SPHPhysics::integrate(const std::vector<Particle *> &particles, float dt)
     {
@@ -281,6 +271,65 @@ namespace sph
     //     resolveCollisions(particles, grid, width, height);
     // }
 
+    void SPHPhysics::computeBoundaryForces(const std::vector<Particle *> &particles, float width, float height)
+    {
+        constexpr float PARTICLE_RADIUS = 5.0f;
+
+        // Boundary parameters - adjusted for mass = 100.0f
+        const float boundaryDistance = 1.5f * PARTICLE_RADIUS; // Detection distance
+        const float boundaryStiffness = 10000.0f;             // Adjusted for mass=100.0f
+        const float boundaryDecay = 2.0f;                      // How quickly force decays with distance
+
+#pragma omp parallel for
+        for (size_t i = 0; i < particles.size(); ++i)
+        {
+            auto *particle = particles[i];
+            sf::Vector2f pos = particle->getPosition();
+            sf::Vector2f boundaryForce(0.0f, 0.0f);
+
+            // Left wall repulsion
+            if (pos.x < boundaryDistance)
+            {
+                float dist = pos.x;
+                float normalizedDist = std::min(dist / boundaryDistance, 1.0f);
+                float forceMagnitude = boundaryStiffness * std::pow(1.0f - normalizedDist, boundaryDecay);
+                boundaryForce.x += forceMagnitude;
+            }
+
+            // Right wall repulsion
+            if (pos.x > width - boundaryDistance)
+            {
+                float dist = width - pos.x;
+                float normalizedDist = std::min(dist / boundaryDistance, 1.0f);
+                float forceMagnitude = boundaryStiffness * std::pow(1.0f - normalizedDist, boundaryDecay);
+                boundaryForce.x -= forceMagnitude;
+            }
+
+            // Top wall repulsion
+            if (pos.y < boundaryDistance)
+            {
+                float dist = pos.y;
+                float normalizedDist = std::min(dist / boundaryDistance, 1.0f);
+                float forceMagnitude = boundaryStiffness * std::pow(1.0f - normalizedDist, boundaryDecay);
+                boundaryForce.y += forceMagnitude;
+            }
+
+            // Bottom wall repulsion
+            if (pos.y > height - boundaryDistance)
+            {
+                float dist = height - pos.y;
+                float normalizedDist = std::min(dist / boundaryDistance, 1.0f);
+                float forceMagnitude = boundaryStiffness * std::pow(1.0f - normalizedDist, boundaryDecay);
+                boundaryForce.y -= forceMagnitude;
+            }
+
+            // Add boundary acceleration to existing acceleration
+            sf::Vector2f currentAcc = particle->getAcceleration();
+            sf::Vector2f boundaryAcc = boundaryForce / particle->getDensity();
+            particle->setAcceleration(currentAcc + boundaryAcc);
+        }
+    }
+
     void SPHPhysics::resolveCollisions(const std::vector<Particle *> &particles, Grid *grid, float width, float height)
     {
         constexpr float PARTICLE_RADIUS = 5.0f;
@@ -292,7 +341,7 @@ namespace sph
             sf::Vector2f pos = particle->getPosition();
             sf::Vector2f vel = particle->getVelocity();
 
-            // Simple boundary conditions with damping
+            // Simple boundary conditions with damping - failsafe only
             if (pos.x < PARTICLE_RADIUS)
             {
                 pos.x = PARTICLE_RADIUS;

@@ -100,6 +100,15 @@ namespace sph
 		 */
 		void resolveCollisions(const std::vector<Particle *> &particles, Grid *grid, float width, float height);
 
+		/**
+		 * @brief Compute forces exerted by boundaries on particles
+		 *
+		 * @param particles Vector of particles to process
+		 * @param width Width of simulation domain
+		 * @param height Height of simulation domain
+		 */
+		void computeBoundaryForces(const std::vector<Particle *> &particles, float width, float height);
+
 		// Getter methods for SPH parameters
 		float getSmoothingRadius() const { return h; }
 		float getViscosity() const { return viscosityCoefficient; }

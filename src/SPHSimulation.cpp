@@ -27,7 +27,7 @@ namespace sph
 
 	void SPHSimulation::update(float dt)
 	{
-		constexpr int sub_steps = 2; // Minimal substeps for stability
+		constexpr int sub_steps = 1; // Minimal substeps for stability
 		float sub_dt = dt / sub_steps;
 
 		// Update grid and cache neighbors once per frame
@@ -49,11 +49,16 @@ namespace sph
 					physics->computeDensityPressure(localParticles, particles->getGrid());
 				};
 
-				// Forces task
 				auto forcesTask = [this](const std::vector<Particle *> &localParticles,
-										 const std::vector<Particle *> &)
+                                         const std::vector<Particle *> &)
+                {
+                    physics->computeForces(localParticles, particles->getGrid());
+                };
+
+				auto boundaryForcesTask = [this](const std::vector<Particle *> &localParticles,
+					const std::vector<Particle *> &)
 				{
-					physics->computeForces(localParticles, particles->getGrid());
+					physics->computeBoundaryForces(localParticles, width, height);
 				};
 
 				// Integration task
@@ -66,6 +71,7 @@ namespace sph
 				// Execute in parallel
 				parallelExecutor->executeParallel(densityPressureTask, particles->getParticles());
 				parallelExecutor->executeParallel(forcesTask, particles->getParticles());
+				parallelExecutor->executeParallel(boundaryForcesTask, particles->getParticles());
 				parallelExecutor->executeParallel(integrateTask, particles->getParticles());
 			}
 			else
@@ -73,6 +79,7 @@ namespace sph
 				// Sequential execution for small particle counts
 				physics->computeDensityPressure(particles->getParticles(), particles->getGrid());
 				physics->computeForces(particles->getParticles(), particles->getGrid());
+				physics->computeBoundaryForces(particles->getParticles(), width, height);
 				physics->integrate(particles->getParticles(), sub_dt);
 			}
 
