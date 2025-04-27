@@ -7,12 +7,13 @@
 
 // Window dimensions
 constexpr int WINDOW_WIDTH = 1200;
-constexpr int WINDOW_HEIGHT = 800;
+constexpr int WINDOW_HEIGHT = 500;
 
 // Simulation parameters
-constexpr float SIMULATION_TIMESTEP = 1.0f / 60;
-constexpr int DEFAULT_PARTICLE_COUNT = 3000;
+constexpr float SIMULATION_TIMESTEP = 0.001f;
+constexpr int DEFAULT_PARTICLE_COUNT = 1000;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
+constexpr float GRAVITY_Y = 500.0f;
 
 // Particle adjustment parameters
 constexpr int PARTICLES_INCREMENT = 100;
@@ -38,7 +39,7 @@ int main()
 	sph::SPHSimulation simulation(WINDOW_WIDTH, WINDOW_HEIGHT); // Updated to use new class
 
 	// Initialize gravity
-	simulation.setGravity(0.0f, 9.8f);
+	simulation.setGravity(0.0f, GRAVITY_Y);
 
 	// Initialize the simulation with default particles
 	simulation.initializeDefaultParticles(DEFAULT_PARTICLE_COUNT);
@@ -68,15 +69,10 @@ int main()
 	// Instruction text
 	sf::Text instructionsText(font,
 							  "Controls:\n"
+							  "Space: Pause/Resume simulation\n" // Add this line
 							  "Move Mouse: Interact with fluid\n"
 							  "+/-: Add/Remove 100 particles\n"
-							  "[/]: Increase/Decrease threads\n"
-							  "P: Toggle parallelization\n"
-							  "V: Toggle subdomain visualization\n"
-							  "L: Toggle load balancing\n"
-							  "B: Toggle load balance visualization\n"
-							  "T: Adjust load balance threshold\n"
-							  "I: Change load balance interval\n");
+							  );
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
 	instructionsText.setPosition({10, WINDOW_HEIGHT - 150});
@@ -89,6 +85,7 @@ int main()
 	bool gravityDown = true;
 	sf::Vector2f lastMousePos;
 	bool isMouseInWindow = false;
+	bool simulationPaused = false; // Add this line
 
 	while (window.isOpen())
 	{
@@ -149,11 +146,11 @@ int main()
 					gravityDown = !gravityDown;
 					if (gravityDown)
 					{
-						simulation.setGravity(0.0f, 9.8f);
+						simulation.setGravity(0.0f, GRAVITY_Y);
 					}
 					else
 					{
-						simulation.setGravity(0.0f, -9.8f);
+						simulation.setGravity(0.0f, -GRAVITY_Y);
 					}
 				}
 
@@ -233,6 +230,13 @@ int main()
 					simulation.setLoadBalanceInterval(newInterval);
 					std::cout << "Load balance interval set to " << newInterval << " frames" << std::endl;
 				}
+
+				// Toggle pause with space bar
+				if (keyEvent->code == sf::Keyboard::Key::Space)
+				{
+					simulationPaused = !simulationPaused;
+					std::cout << "Simulation " << (simulationPaused ? "paused" : "resumed") << std::endl;
+				}
 			}
 		}
 
@@ -241,7 +245,7 @@ int main()
 		accumulator += deltaTime;
 
 		// Update simulation with fixed time step
-		while (accumulator >= SIMULATION_TIMESTEP)
+		while (accumulator >= SIMULATION_TIMESTEP && !simulationPaused) // Add check here
 		{
 			simulation.update(SIMULATION_TIMESTEP);
 			accumulator -= SIMULATION_TIMESTEP;

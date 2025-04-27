@@ -38,6 +38,25 @@
 		"ostream": "cpp",
 		"random": "cpp",
 		"istream": "cpp",
-		"complex": "cpp"
+		"complex": "cpp",
+		"unordered_set": "cpp",
+		"atomic": "cpp",
+		"bit": "cpp",
+		"concepts": "cpp",
+		"iterator": "cpp",
+		"type_traits": "cpp",
+		"utility": "cpp",
+		"*.tcc": "cpp",
+		"array": "cpp",
+		"cctype": "cpp",
+		"clocale": "cpp",
+		"cwchar": "cpp",
+		"cwctype": "cpp",
+		"print": "cpp",
+		"ratio": "cpp",
+		"variant": "cpp",
+		"string": "cpp",
+		"functional": "cpp",
+		"sstream": "cpp"
 	}
 }

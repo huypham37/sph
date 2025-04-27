@@ -61,6 +61,18 @@ namespace sph
 		void initialize(int count);
 
 		/**
+		 * @brief Initialize particles in a dam break configuration
+		 *
+		 * Creates a dense block of particles in one side of the domain
+		 * that will collapse and flow when simulation starts
+		 *
+		 * @param count Number of particles to create
+		 * @param damWidth Width of the dam as a fraction of domain width (0.0-1.0)
+		 * @param damHeight Height of the dam as a fraction of domain height (0.0-1.0)
+		 */
+		void initializeDamBreak(int count, float damWidth = 0.4f, float damHeight = 0.8f);
+
+		/**
 		 * @brief Delete all particles
 		 */
 		void reset();

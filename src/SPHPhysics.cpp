@@ -10,12 +10,14 @@
 namespace sph
 {
     SPHPhysics::SPHPhysics()
-        : h(0.2f),
+        : h(14.0f),
           h2(h * h),
           viscosityCoefficient(0.1f),
-          gasConstant(200.0f),
-          restDensity(1000.0f),
-          boundaryDamping(0.5f)
+          gasConstant(35000.0f),
+          restDensity(0.7f),
+          boundaryDamping(0.3f),
+          gamma(7.0f),
+          timeStepCounter(0)
     {
     }
 
@@ -27,70 +29,220 @@ namespace sph
 
     void SPHPhysics::computeDensityPressure(const std::vector<Particle *> &particles, Grid *grid)
     {
-        #pragma omp parallel for
-        for (size_t i = 0; i < particles.size(); ++i)
+        // Increment time step counter at the beginning of each simulation step
+        timeStepCounter++;
+        bool shouldPrintDebug = (timeStepCounter % 1000 == 0);
+
+        // Pre-compute kernel coefficient for optimization
+        const float POLY6_COEFF = 4.0f / (M_PI * std::pow(h, 8));
+
+        // Debug - select particles near the bottom of the screen
+        debugParticles.clear();
+        if (shouldPrintDebug && !particles.empty())
         {
-            float density = 0.0f;
-            auto *particle = particles[i];
-
-            for (auto *neighbor : particle->cachedNeighbors)
+            // Filter particles with y position greater than 490
+            for (size_t i = 0; i < particles.size(); ++i)
             {
-                sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
-                float distSqr = r.x * r.x + r.y * r.y;
+                auto *particle = particles[i];
+                sf::Vector2f position = particle->getPosition();
 
-                if (distSqr < h * h)
+                if (position.y > 490.0f)
                 {
-                    density += neighbor->getMass() * kernelPoly6(distSqr);
+                    debugParticles.insert(i);
                 }
             }
 
-            particle->setDensity(std::max(density, restDensity));
-            float pressure = gasConstant * (particle->getDensity() - restDensity);
-            particle->setPressure(std::max(0.0f, pressure));
+            // Output how many particles we're debugging
+            if (!debugParticles.empty())
+            {
+                std::cout << "Debugging " << debugParticles.size() << " particles near bottom" << std::endl;
+            }
         }
-    }
 
-    void SPHPhysics::computeForces(const std::vector<Particle *> &particles, Grid *grid)
-    {
-        #pragma omp parallel for
         for (size_t i = 0; i < particles.size(); ++i)
         {
             auto *particle = particles[i];
-            sf::Vector2f pressureForce = {0.0f, 0.0f};
-            sf::Vector2f viscosityForce = {0.0f, 0.0f};
+            float density = 0.0f;
 
+            // Include self-contribution for density
+            density += particle->getMass() * POLY6_COEFF * std::pow(h2, 3);
+            // Get neighbors for efficiency in later calculations
+
+            // Sum contribution from neighbors
             for (auto *neighbor : particle->cachedNeighbors)
             {
                 if (particle == neighbor)
                     continue;
 
                 sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
-                float dist = std::sqrt(r.x * r.x + r.y * r.y);
+                float distSqr = r.x * r.x + r.y * r.y;
 
-                if (dist > 0.0f && dist < h)
+                if (distSqr < h2)
                 {
-                    sf::Vector2f dir = r / dist;
-
-                    float pressureTerm = particle->getPressure() / (particle->getDensity() * particle->getDensity()) +
-                                         neighbor->getPressure() / (neighbor->getDensity() * neighbor->getDensity());
-                    pressureForce -= neighbor->getMass() * pressureTerm * kernelGradSpiky(dist, dir);
-
-                    sf::Vector2f velocityDiff = neighbor->getVelocity() - particle->getVelocity();
-                    viscosityForce += viscosityCoefficient * neighbor->getMass() *
-                                      (velocityDiff / neighbor->getDensity()) *
-                                      kernelViscosityLaplacian(dist);
+                    float h2_r2 = h2 - distSqr;
+                    density += neighbor->getMass() * POLY6_COEFF * h2_r2 * h2_r2 * h2_r2;
                 }
             }
 
-            sf::Vector2f gravityForce = gravity * particle->getMass();
-            sf::Vector2f acceleration = (pressureForce + viscosityForce + gravityForce) / particle->getMass();
-            particle->setAcceleration(acceleration);
+            // Ensure minimum density
+            density = std::max(density, 0.9f * restDensity);
+            particle->setDensity(density);
+
+            float density_ratio = density / restDensity;
+            // Basic EOS (Equation of State)
+            // float pressure = gasConstant * (density - restDensity);
+            float pressure_term = std::pow(density_ratio, gamma) - 1.0f;
+            float pressure = (this->gasConstant * restDensity / gamma) * pressure_term;
+            pressure = std::max(0.0f, pressure);
+            particle->setPressure(pressure);
+
+            // Update the debug output code to respect the counter
+            if (shouldPrintDebug && debugParticles.find(i) != debugParticles.end())
+            {
+                int realNeighborCount = 0;
+                for (auto *neighbor : particle->cachedNeighbors)
+                {
+                    if (particle == neighbor)
+                        continue;
+                    sf::Vector2f r = particle->getPosition() - neighbor->getPosition();
+                    float distSqr = r.x * r.x + r.y * r.y;
+                    if (distSqr < 4 * h2)
+                        realNeighborCount++;
+                }
+
+                sf::Vector2f pos = particle->getPosition();
+                sf::Vector2f vel = particle->getVelocity();
+                std::cout << "Step " << timeStepCounter << " - Particle " << i << " at (" << pos.x << ", " << pos.y << "): "
+                          << "Grid neighbors: " << particle->cachedNeighbors.size()
+                          << ", h-radius neighbors: " << realNeighborCount
+                          << ", Density: " << particle->getDensity()
+                          << ", Pressure: " << particle->getPressure() 
+                          << ", Velocity: (" << vel.x << ", " << vel.y << ")" << std::endl;
+            }
         }
     }
 
+    // Assume Constructor, computeDensityPressure, integrate, resolveCollisions etc. exist
+
+    void SPHPhysics::computeForces(const std::vector<Particle *> &particles, Grid *grid)
+    {
+        // Kernel gradient constant (for Pressure AND Artificial Viscosity)
+        // Note: Using 45 / (pi * h^6) for 3D Spiky gradient, adjust if needed for 2D
+        // A common 2D Spiky gradient constant is -30 / (pi * h^5)
+        // Let's stick with your value for now, assuming it's correct for your 2D kernel
+        const float SPIKY_GRAD_COEFF = -10.0f / (M_PI * std::pow(h, 5));
+
+        // Small value to prevent division by zero and instability
+        const float EPS = 1e-6f;
+        const float h2 = h * h; // Ensure h2 is accessible (member or calculated)
+
+        // --- Artificial Viscosity Parameters ---
+        const float alpha = 0.9f; // TUNABLE: Start 0.1, increase (0.3, 0.5, 1.0) if unstable/energetic
+        // const float beta = 0.0f;  // Often zero for liquids
+        const float artificial_epsilon = 0.01f * h2; // Small term added to denominator: epsilon*h^2
+
+        // Debugging flag (assuming timeStepCounter is a member variable)
+        // bool shouldPrintDebug = (timeStepCounter % 1000 == 0);
+
+// #pragma omp parallel for // Can parallelize the outer loop
+        for (size_t i = 0; i < particles.size(); ++i)
+        {
+            auto *particle = particles[i];
+            sf::Vector2f pressureAcceleration(0.0f, 0.0f);
+            sf::Vector2f viscosityAcceleration(0.0f, 0.0f); // Accumulates artificial viscosity acceleration
+
+            // Get particle properties once
+            sf::Vector2f pos_i = particle->getPosition();
+            sf::Vector2f vel_i = particle->getVelocity();
+            float density_i = particle->getDensity();
+            float pressure_i = particle->getPressure();
+
+            // Make sure density isn't too close to zero before division
+            if (density_i < EPS) density_i = EPS; // Safeguard
+
+            for (auto *neighbor : particle->cachedNeighbors)
+            {
+                if (particle == neighbor)
+                    continue;
+
+                // Get neighbor properties once
+                sf::Vector2f pos_j = neighbor->getPosition();
+                sf::Vector2f vel_j = neighbor->getVelocity();
+                float density_j = neighbor->getDensity();
+                float pressure_j = neighbor->getPressure();
+                float mass_j = neighbor->getMass();
+
+                // Make sure density isn't too close to zero before division
+                if (density_j < EPS) density_j = EPS; // Safeguard
+
+                sf::Vector2f r_ij = pos_i - pos_j; // Vector from j to i
+                float distSqr = r_ij.x * r_ij.x + r_ij.y * r_ij.y;
+
+                if (distSqr < h2 && distSqr > EPS) // Check within h and avoid self/coincident
+                {
+                    float dist = std::sqrt(distSqr);
+                    sf::Vector2f dir_ij = r_ij / dist; // Normalized direction from j to i
+
+                    // --- Pressure Acceleration Calculation (Unchanged) ---
+                    float pressureTerm = -(pressure_i / (density_i * density_i) +
+                                           pressure_j / (density_j * density_j));
+
+                    float h_r = h - dist;
+                    // Use Spiky gradient for pressure too (common practice)
+                    sf::Vector2f gradW_spiky = SPIKY_GRAD_COEFF * h_r * h_r * dir_ij;
+                    pressureAcceleration += mass_j * pressureTerm * gradW_spiky;
+
+
+                    // --- Monaghan Artificial Viscosity Acceleration Calculation ---
+                    sf::Vector2f vel_ij = vel_i - vel_j; // Relative velocity v_i - v_j
+                    float v_dot_r = vel_ij.x * r_ij.x + vel_ij.y * r_ij.y; // v_ij dot r_ij
+
+                    // Only apply viscosity if particles are *approaching* each other
+                    if (v_dot_r < 0.0f)
+                    {
+                        // Average density
+                        float rho_avg = 0.5f * (density_i + density_j);
+
+                        // Speed of sound estimate (can be simplified or made more complex)
+                        // Using sqrt(kappa/rho) is more related to Tait EOS.
+                        // A simpler estimate often used here:
+                        float c_i = std::sqrt(std::max(0.0f, pressure_i / density_i)); // Speed of sound estimate at i
+                        float c_j = std::sqrt(std::max(0.0f, pressure_j / density_j)); // Speed of sound estimate at j
+                        float c_avg = 0.5f * (c_i + c_j);
+
+                        // Mu term from Monaghan's paper
+                        float mu_ij = (h * v_dot_r) / (distSqr + artificial_epsilon); // distSqr = r_ij^2
+
+                        // Viscosity term (PI_ij) - Ignoring beta term for liquids
+                        float PI_ij = (-alpha * c_avg * mu_ij) / rho_avg;
+
+                        // Viscosity Acceleration contribution = - sum [ m_j * PI_ij * gradW_ij ]
+                        // Note: gradW_spiky is already computed above for pressure
+                        viscosityAcceleration += -mass_j * PI_ij * gradW_spiky;
+                    }
+                    // --- End Artificial Viscosity ---
+                }
+            } // End neighbor loop
+
+            // Set total acceleration = Pressure Acceleration + Viscosity Acceleration + Gravity
+            particle->setAcceleration(pressureAcceleration + viscosityAcceleration + gravity);
+
+            // --- Optional Debug Output ---
+            // if (shouldPrintDebug && debugParticles.find(i) != debugParticles.end()) {
+            //     std::cout << "Step " << timeStepCounter << " - Force Particle " << i << ": "
+            //               << "PressAccel=(" << pressureAcceleration.x << "," << pressureAcceleration.y << ") "
+            //               << "ViscAccel=(" << viscosityAcceleration.x << "," << viscosityAcceleration.y << ") "
+            //               << "TotalAccel=(" << particle->getAcceleration().x << "," << particle->getAcceleration().y << ")" << std::endl;
+            // }
+            // --- End Optional Debug Output ---
+
+        } // End particle loop
+    } // End computeForces
+
+
     void SPHPhysics::integrate(const std::vector<Particle *> &particles, float dt)
     {
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for (size_t i = 0; i < particles.size(); ++i)
         {
             auto *particle = particles[i];
@@ -100,126 +252,70 @@ namespace sph
         }
     }
 
-    void SPHPhysics::resolveCollisions(const std::vector<Particle*>& particles, Grid* grid, float width, float height) {
-		constexpr float PARTICLE_RADIUS = 4.0f;
-		constexpr float COLLISION_DAMPING = 0.5f;
-		const float minDist = PARTICLE_RADIUS * 2.0f;
-		const float minDistSq = minDist * minDist;
-		float restitution = 0.5f;
-	
-		// Compute overlap severity and density metrics
-		float maxOverlap = 0.0f;
-		float avgNeighbors = 0.0f;
-		int maxNeighbors = 0;
-		for (auto* p : particles) {
-			int neighborCount = p->cachedNeighbors.size();
-			avgNeighbors += neighborCount;
-			maxNeighbors = std::max(maxNeighbors, neighborCount);
-			for (auto* p2 : p->cachedNeighbors) {
-				if (p == p2) continue;
-				sf::Vector2f delta = p->getPosition() - p2->getPosition();
-				float distSq = delta.x * delta.x + delta.y * delta.y;
-				if (distSq < minDistSq && distSq > 1e-6f) {
-					float dist = std::sqrt(distSq);
-					float overlap = minDist - dist;
-					maxOverlap = std::max(maxOverlap, overlap);
-				}
-			}
-		}
-		avgNeighbors /= particles.size();
-	
-		// Adaptive maxIterations: base + density + overlap severity
-		int maxIterations = 3 + static_cast<int>(std::ceil(avgNeighbors / 4.0f) + maxOverlap / PARTICLE_RADIUS);
-		maxIterations = std::min(maxIterations, 15); // Higher cap for dense regions
-		std::cout << "Adaptive max iterations: " << maxIterations 
-				  << " (avg neighbors: " << avgNeighbors 
-				  << ", max neighbors: " << maxNeighbors 
-				  << ", max overlap: " << maxOverlap << ")" << std::endl;
-	
-		// Boundary collisions
-		#pragma omp parallel for
-		for (size_t i = 0; i < particles.size(); ++i) {
-			auto* particle = particles[i];
-			sf::Vector2f pos = particle->getPosition();
-			sf::Vector2f vel = particle->getVelocity();
-			if (pos.x < PARTICLE_RADIUS) { pos.x = PARTICLE_RADIUS; vel.x = -vel.x * boundaryDamping; }
-			if (pos.x > width - PARTICLE_RADIUS) { pos.x = width - PARTICLE_RADIUS; vel.x = -vel.x * boundaryDamping; }
-			if (pos.y < PARTICLE_RADIUS) { pos.y = PARTICLE_RADIUS; vel.y = -vel.y * boundaryDamping; }
-			if (pos.y > height - PARTICLE_RADIUS) { pos.y = height - PARTICLE_RADIUS; vel.y = -vel.y * boundaryDamping; }
-			particle->setPosition(pos);
-			particle->setVelocity(vel);
-		}
-	
-		// Particle-particle collisions with adaptive iterations
-		for (int iter = 0; iter < maxIterations; ++iter) {
-			std::vector<std::tuple<Particle*, sf::Vector2f, sf::Vector2f>> globalUpdates;
-			#pragma omp parallel 
-			{
-				std::vector<std::tuple<Particle*, sf::Vector2f, sf::Vector2f>> localUpdates;
-				#pragma omp for nowait
-				for (size_t i = 0; i < particles.size(); ++i) {
-					auto* p1 = particles[i];
-					sf::Vector2f pos1 = p1->getPosition();
-					for (auto* p2 : p1->cachedNeighbors) {
-						if (p1 == p2) continue;
-						sf::Vector2f pos2 = p2->getPosition();
-						sf::Vector2f delta = pos1 - pos2;
-						float distSq = delta.x * delta.x + delta.y * delta.y;
-						if (distSq < minDistSq && distSq > 1e-6f) {
-							float dist = std::sqrt(distSq);
-							float penetration = minDist - dist;
-							sf::Vector2f normal = delta / dist;
-							// Stronger correction inspired by Simulator
-							sf::Vector2f correction = normal * (penetration * 0.25f); // Match Simulator's 0.25f delta
-							sf::Vector2f v1 = p1->getVelocity();
-							sf::Vector2f v2 = p2->getVelocity();
-							sf::Vector2f relVel = v1 - v2;
-							float velAlongNormal = relVel.x * normal.x + relVel.y * normal.y;
-							sf::Vector2f impulse = {0.0f, 0.0f};
-							if (velAlongNormal < 0) {
-								float impulseMagnitude = -(1.0f) * velAlongNormal / 2.0f;
-								impulse = normal * impulseMagnitude;
-							}
-							impulse += normal * (penetration * 0.05f); // Fixed correction factor
-							localUpdates.push_back(std::make_tuple(p1, pos1 + correction, v1 + impulse));
-							localUpdates.push_back(std::make_tuple(p2, pos2 - correction, v2 - impulse));
-						}
-					}
-				}
-				#pragma omp critical
-				globalUpdates.insert(globalUpdates.end(), localUpdates.begin(), localUpdates.end());
-			}
-			for (const auto& update : globalUpdates) {
-				Particle* p = std::get<0>(update);
-				p->setPosition(std::get<1>(update));
-				p->setVelocity(std::get<2>(update));
-			}
-		}
-	}
+    // void SPHPhysics::integrateVerlet(const std::vector<Particle *> &particles, float dt, Grid* grid, float width, float height) {
+    //     // First half of Verlet using existing forces
+    //     for (auto* particle: particles)
+    //     {
+    //         sf::Vector2f halfVelocity = particle->getVelocity() +
+    //                                     0.5f * dt * particle->getAcceleration();
+    //         // update position
+    //         sf::Vector2f newPosition = particle->getPosition() + halfVelocity * dt;
+    //         particle->setPosition(newPosition);
+    //         particle->setImmediateVelocity(halfVelocity);
+    //     }
 
-    float SPHPhysics::kernelPoly6(float distSquared)
-    {
-        if (distSquared >= h2)
-            return 0.0f;
-        const float coeff = 315.0f / (64.0f * M_PI * std::pow(h, 9));
-        float h2_r2 = h2 - distSquared;
-        return coeff * h2_r2 * h2_r2 * h2_r2;
-    }
+    //     // Update grid with new positions:
+    //     particles->updateGrid(particles);
 
-    sf::Vector2f SPHPhysics::kernelGradSpiky(float dist, const sf::Vector2f &dir)
-    {
-        if (dist >= h || dist <= 0.0f)
-            return {0.0f, 0.0f};
-        const float coeff = -45.0f / (M_PI * std::pow(h, 6));
-        float h_r = h - dist;
-        return coeff * h_r * h_r * dir;
-    }
+    //     computeDensityPressure(particles, grid);
 
-    float SPHPhysics::kernelViscosityLaplacian(float dist)
+    //     computeForces(particles, grid);
+
+    //     for (auto* particle: particles)
+    //     {
+    //         sf::Vector2f finalVelocity = particle->getImmediateVelocity() +
+    //                                      particle->getAcceleration() * (0.5f * dt);
+    //         particle->setVelocity(finalVelocity);
+    //     }
+
+    //     resolveCollisions(particles, grid, width, height);
+    // }
+
+    void SPHPhysics::resolveCollisions(const std::vector<Particle *> &particles, Grid *grid, float width, float height)
     {
-        if (dist >= h)
-            return 0.0f;
-        const float coeff = 45.0f / (M_PI * std::pow(h, 6));
-        return coeff * (h - dist);
+        constexpr float PARTICLE_RADIUS = 5.0f;
+
+#pragma omp parallel for
+        for (size_t i = 0; i < particles.size(); ++i)
+        {
+            auto *particle = particles[i];
+            sf::Vector2f pos = particle->getPosition();
+            sf::Vector2f vel = particle->getVelocity();
+
+            // Simple boundary conditions with damping
+            if (pos.x < PARTICLE_RADIUS)
+            {
+                pos.x = PARTICLE_RADIUS;
+                vel.x = -vel.x * boundaryDamping;
+            }
+            if (pos.x > width - PARTICLE_RADIUS)
+            {
+                pos.x = width - PARTICLE_RADIUS;
+                vel.x = -vel.x * boundaryDamping;
+            }
+            if (pos.y < PARTICLE_RADIUS)
+            {
+                pos.y = PARTICLE_RADIUS;
+                vel.y = -vel.y * boundaryDamping;
+            }
+            if (pos.y > height - PARTICLE_RADIUS)
+            {
+                pos.y = height - PARTICLE_RADIUS;
+                vel.y = -vel.y * boundaryDamping;
+            }
+
+            particle->setPosition(pos);
+            particle->setVelocity(vel);
+        }
     }
 }

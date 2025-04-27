@@ -8,7 +8,7 @@ namespace sph
 	SPHSimulation::SPHSimulation(float width, float height)
 		: width(width),
 		  height(height),
-		  smoothingRadius(16.0f)
+		  smoothingRadius(14.0f)
 	{
 		// Create component instances
 		particles = std::make_unique<ParticleSystem>(width, height, smoothingRadius);
@@ -134,7 +134,7 @@ namespace sph
 
 	void SPHSimulation::initializeDefaultParticles(int count)
 	{
-		particles->initialize(count);
+		particles->initializeDamBreak(count);
 	}
 
 	void SPHSimulation::setNumThreads(int num)

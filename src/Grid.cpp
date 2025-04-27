@@ -21,6 +21,16 @@ void Grid::insertParticle(Particle *particle)
 	cells[index].push_back(particle);
 }
 
+void Grid::updateGrid(const std::vector<Particle *> &particles)
+{
+    this->clear();
+
+    for (auto* particle: particles)
+    {
+        insertParticle(particle);
+    }
+}
+
 std::vector<Particle*> Grid::getNeighbors(float x, float y, float radius)
 {
     std::vector<Particle*> neighbors;
@@ -85,3 +95,4 @@ std::pair<int, int> Grid::positionToCell(float x, float y) const
 	int cellY = static_cast<int>(y * invCellSize);
 	return {cellX, cellY};
 }
+

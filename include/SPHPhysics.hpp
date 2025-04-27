@@ -4,6 +4,7 @@
 #include "Particle.hpp"
 #include "Grid.hpp" // Added missing include for Grid class
 #include <vector>
+#include <unordered_set> // Added missing include for unordered_set
 
 namespace sph
 {
@@ -120,6 +121,9 @@ namespace sph
 		float gasConstant;			// Gas constant for pressure
 		float restDensity;			// Rest density
 		float boundaryDamping;		// Boundary collision damping
+		float gamma;				// For equation of state
+		int timeStepCounter;		// For debugging
+		std::unordered_set<size_t> debugParticles; // For tracking specific particles
 	};
 
 } // namespace sph

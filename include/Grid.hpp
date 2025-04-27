@@ -14,7 +14,7 @@ public:
 	void insertParticle(Particle *particle);
 	std::vector<Particle *> getNeighbors(float x, float y, float radius);
 	std::vector<Particle *> getNeighbors(const Particle *particle, float radius);
-
+	void updateGrid(const std::vector<Particle *> &particles);
 	// Add a getter for cell size to make its use explicit
 	float getCellSize() const { return cellSize; }
 

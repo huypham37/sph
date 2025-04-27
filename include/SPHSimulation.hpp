@@ -129,6 +129,7 @@ namespace sph
 		// Main simulation components
 		std::unique_ptr<ParticleSystem> particles;
 		std::unique_ptr<SPHPhysics> physics;
+		std::unique_ptr<Grid> grid;
 		std::unique_ptr<ParallelExecutor> parallelExecutor;
 		std::unique_ptr<Renderer> renderer;
 
