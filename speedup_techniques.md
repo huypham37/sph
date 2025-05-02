@@ -1,5 +1,3 @@
-Okay, let's break down the optimization techniques discussed in this State-of-the-Art report on SPH fluids:
-
 The paper discusses numerous techniques aimed at optimizing SPH simulations, primarily focusing on improving **computational performance (speed)** and **efficiency (memory usage)**, and enabling larger, more complex simulations. Here are the key optimization areas and techniques covered:
 
 1.  **Neighborhood Search Acceleration (Sec 2):** This is crucial as finding neighbors is a core SPH cost.
