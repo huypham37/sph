@@ -8,7 +8,7 @@ namespace sph
 	SPHSimulation::SPHSimulation(float width, float height)
 		: width(width),
 		  height(height),
-		  smoothingRadius(14.0f)
+		  smoothingRadius(Config::SMOOTHING_RADIUS)
 	{
 		// Create component instances
 		particles = std::make_unique<ParticleSystem>(width, height, smoothingRadius);
@@ -50,13 +50,13 @@ namespace sph
 				};
 
 				auto forcesTask = [this](const std::vector<Particle *> &localParticles,
-                                         const std::vector<Particle *> &)
-                {
-                    physics->computeForces(localParticles, particles->getGrid());
-                };
+										 const std::vector<Particle *> &)
+				{
+					physics->computeForces(localParticles, particles->getGrid());
+				};
 
 				auto boundaryForcesTask = [this](const std::vector<Particle *> &localParticles,
-					const std::vector<Particle *> &)
+												 const std::vector<Particle *> &)
 				{
 					physics->computeBoundaryForces(localParticles, width, height);
 				};
@@ -119,20 +119,6 @@ namespace sph
 		}
 	}
 
-	void SPHSimulation::addParticle(float x, float y)
-	{
-		particles->addParticle(x, y);
-	}
-
-	void SPHSimulation::addParticles(int count)
-	{
-		particles->addParticles(count);
-	}
-
-	void SPHSimulation::removeParticles(int count)
-	{
-		particles->removeParticles(count);
-	}
 
 	void SPHSimulation::reset()
 	{
@@ -236,36 +222,5 @@ namespace sph
 		}
 	}
 
-	void SPHSimulation::setLoadBalancingEnabled(bool enabled)
-	{
-		parallelExecutor->setLoadBalancingEnabled(enabled);
-		std::cout << "Load balancing " << (enabled ? "enabled" : "disabled") << std::endl;
-	}
-
-	bool SPHSimulation::isLoadBalancingEnabled() const
-	{
-		return parallelExecutor->isLoadBalancingEnabled();
-	}
-
-	void SPHSimulation::setLoadBalanceThreshold(float threshold)
-	{
-		parallelExecutor->setLoadBalanceThreshold(threshold);
-	}
-
-	void SPHSimulation::setLoadBalanceInterval(int frames)
-	{
-		parallelExecutor->setLoadBalanceInterval(frames);
-	}
-
-	void SPHSimulation::setVisualizeLoadBalance(bool enabled)
-	{
-		renderer->setVisualizeLoadBalance(enabled);
-		std::cout << "Load balance visualization " << (enabled ? "enabled" : "disabled") << std::endl;
-	}
-
-	bool SPHSimulation::isVisualizeLoadBalance() const
-	{
-		return renderer->isVisualizeLoadBalance();
-	}
 
 } // namespace sph

@@ -6,8 +6,6 @@
 #include "Particle.hpp"
 #include "parallel/DomainDecomposer.hpp"
 #include "parallel/BoundaryManager.hpp"
-#include "parallel/LoadBalancer.hpp"
-#include "parallel/SimpleLoadBalancer.hpp"
 
 namespace sph
 {
@@ -99,35 +97,21 @@ namespace sph
 		 *
 		 * @return True if load balancing was performed
 		 */
-		bool checkAndRebalance();
+		// bool checkAndRebalance();
 
 		/**
 		 * @brief Set whether load balancing is enabled
 		 *
 		 * @param enabled True if load balancing should be used
 		 */
-		void setLoadBalancingEnabled(bool enabled) { loadBalancingEnabled = enabled; }
+		// void setLoadBalancingEnabled(bool enabled) { loadBalancingEnabled = enabled; }
 
 		/**
 		 * @brief Check if load balancing is enabled
 		 *
 		 * @return True if load balancing is enabled
 		 */
-		bool isLoadBalancingEnabled() const { return loadBalancingEnabled; }
-
-		/**
-		 * @brief Set load balancing threshold
-		 *
-		 * @param threshold Value between 0 and 1 representing acceptable imbalance
-		 */
-		void setLoadBalanceThreshold(float threshold);
-
-		/**
-		 * @brief Set load balance check interval
-		 *
-		 * @param frames Number of frames between balance checks
-		 */
-		void setLoadBalanceInterval(int frames);
+		// bool isLoadBalancingEnabled() const { return loadBalancingEnabled; }
 
 	private:
 		// Domain dimensions
@@ -135,16 +119,15 @@ namespace sph
 		float height;
 		float smoothingRadius;
 
-		// Parallel execution state
-		bool parallelizationEnabled;
-		bool loadBalancingEnabled;
+		// Number of threads
 		int numThreads;
 
 		// Domain decomposition components
 		std::unique_ptr<parallel::DomainDecomposer> domainDecomposer;
 		std::unique_ptr<parallel::BoundaryManager> boundaryManager;
-		std::unique_ptr<parallel::LoadBalancer> loadBalancer;
 		std::vector<std::unique_ptr<parallel::Subdomain>> subdomains;
+
+		bool parallelizationEnabled;
 
 		// Setup procedures
 		void initializeComponents();

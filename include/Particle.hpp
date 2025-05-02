@@ -44,5 +44,5 @@ public:
 		sf::Color baseColor; // Base color for the particle
 
 		static constexpr float RADIUS = 5.0f;
-		static constexpr float DEFAULT_MASS = 90.0f;
+		
 };

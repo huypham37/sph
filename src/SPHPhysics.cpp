@@ -9,17 +9,16 @@
 
 namespace sph
 {
-    SPHPhysics::SPHPhysics()
-        : h(14.0f),
-          h2(h * h),
-          viscosityCoefficient(0.1f),
-          gasConstant(5000000.0f), // this too large leaves too high pressure
-          restDensity(0.9f),
-          boundaryDamping(0.3f),
-          gamma(7.0f),
-          timeStepCounter(0)
-    {
-    }
+    SPHPhysics::SPHPhysics(){
+        h = Config::SMOOTHING_RADIUS;
+        h2 = h * h;
+        viscosityCoefficient = Config::VISCOSITY;
+        gasConstant = Config::GAS_CONSTANT;
+        restDensity = Config::REST_DENSITY;
+        boundaryDamping = Config::BOUNDARY_DAMPING;
+        gamma = Config::GAMMA;
+        timeStepCounter = 0;
+    };
 
     void SPHPhysics::setSmoothingRadius(float smoothingRadius)
     {
@@ -113,6 +112,7 @@ namespace sph
                 sf::Vector2f pos = particle->getPosition();
                 sf::Vector2f vel = particle->getVelocity();
                 std::cout << "Step " << timeStepCounter << " - Particle " << i << " at (" << pos.x << ", " << pos.y << "): "
+                          << "Mass: " << particle->getMass() << ", "
                           << "Grid neighbors: " << particle->cachedNeighbors.size()
                           << ", h-radius neighbors: " << realNeighborCount
                           << ", Density: " << particle->getDensity()

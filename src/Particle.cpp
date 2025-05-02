@@ -1,14 +1,14 @@
 #include "Particle.hpp"
 #include <cmath>
-
+#include "SPHConfig.hpp"
 Particle::Particle(float x, float y)
 	: position({x, y}),
 	  velocity({0.0f, 0.0f}),
 	  acceleration({0.0f, 0.0f}),
-	  mass(DEFAULT_MASS),
+	  mass(Config::PARTICLE_MASS),
 	  density(0.0f),
 	  pressure(0.0f),
-	  shape(RADIUS)
+	  shape(Config::PARTICLE_RADIUS)
 {
 	// Base color for still particles
 	baseColor = sf::Color(40, 120, 255, 220);

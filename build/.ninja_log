@@ -1,14 +1,13 @@
 # ninja log v5
-1	1102	1745739055490163614	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
-5	1107	1745739055499148419	CMakeFiles/sph_simulation.dir/src/parallel/BoundaryManager.cpp.o	fd52ebbb92c05bb5
-1	1130	1745739055525238251	CMakeFiles/sph_simulation.dir/src/ParticleSystem.cpp.o	f7780e63a8a8231
-1	1159	1745739055554437254	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
-3	1173	1745739055569661777	CMakeFiles/sph_simulation.dir/src/SPHPhysics.cpp.o	57bf1230ea9d2640
-1	1189	1745739055585826218	CMakeFiles/sph_simulation.dir/src/ParallelExecutor.cpp.o	a57c4d9ec24c78b1
-5	1202	1745739055599116155	CMakeFiles/sph_simulation.dir/src/parallel/GridDomainDecomposer.cpp.o	ef426d35689a4fd5
-2	1237	1745739055633868542	CMakeFiles/sph_simulation.dir/src/Renderer.cpp.o	24cc7b763bb4d28
-5	1320	1745739055718000879	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
-3	1420	1745739055816866947	CMakeFiles/sph_simulation.dir/src/SPHSimulation.cpp.o	9cd059408661dce3
-1106	1700	1745739056097967209	CMakeFiles/sph_simulation.dir/src/parallel/SimpleLoadBalancer.cpp.o	b87ab339cd3e22c9
-1107	1784	1745739056181498921	CMakeFiles/sph_simulation.dir/src/parallel/Subdomain.cpp.o	906b5ce3e4c3b114
-1784	1849	1745739056248589731	sph_simulation	78c093c25bbaa3ae
+1	1283	1746189522415869580	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
+1	1344	1746189522477329424	CMakeFiles/sph_simulation.dir/src/ParallelExecutor.cpp.o	a57c4d9ec24c78b1
+2	1402	1746189522535942991	CMakeFiles/sph_simulation.dir/src/parallel/BoundaryManager.cpp.o	fd52ebbb92c05bb5
+1	1453	1746189522584758943	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
+1	1474	1746189522603789052	CMakeFiles/sph_simulation.dir/src/ParticleSystem.cpp.o	f7780e63a8a8231
+1	1492	1746189522625587480	CMakeFiles/sph_simulation.dir/src/SPHPhysics.cpp.o	57bf1230ea9d2640
+3	1513	1746189522647035242	CMakeFiles/sph_simulation.dir/src/parallel/GridDomainDecomposer.cpp.o	ef426d35689a4fd5
+2	1541	1746189522675181803	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
+1	1552	1746189522685747039	CMakeFiles/sph_simulation.dir/src/Renderer.cpp.o	24cc7b763bb4d28
+2	1752	1746189522886297653	CMakeFiles/sph_simulation.dir/src/SPHSimulation.cpp.o	9cd059408661dce3
+1286	2000	1746189523134741891	CMakeFiles/sph_simulation.dir/src/parallel/Subdomain.cpp.o	906b5ce3e4c3b114
+2000	2069	1746189523205862392	sph_simulation	2f98f5344571fc0c

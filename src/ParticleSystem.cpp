@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include "SPHConfig.hpp"
 
 
 namespace sph
@@ -10,7 +11,7 @@ namespace sph
 	ParticleSystem::ParticleSystem(float width, float height, float smoothingRadius)
 		: width(width),
 		  height(height),
-		  smoothingRadius(smoothingRadius)
+		  smoothingRadius(Config::SMOOTHING_RADIUS)
 	{
 		// Create Grid for spatial partitioning
 		grid = new Grid(width, height, smoothingRadius);
@@ -29,108 +30,24 @@ namespace sph
 		return particle;
 	}
 
-	void ParticleSystem::addParticles(int count)
-	{
-		if (count <= 0)
-			return;
 
-		// Add particles in a small area near the center of the screen
-		const float centerX = width / 2.0f;
-		const float centerY = height / 3.0f; // Upper third of the screen
-		const float radius = std::min(width, height) / 8.0f;
 
-		for (int i = 0; i < count; ++i)
-		{
-			// Generate random position within a circle
-			float angle = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f * M_PI;
-			float distance = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * radius;
-
-			float x = centerX + cos(angle) * distance;
-			float y = centerY + sin(angle) * distance;
-
-			// Ensure within bounds
-			x = std::max(5.0f, std::min(width - 5.0f, x));
-			y = std::max(5.0f, std::min(height - 5.0f, y));
-
-			addParticle(x, y);
-		}
-
-		std::cout << "Added " << count << " particles, total: " << particles.size() << std::endl;
-	}
-
-	void ParticleSystem::removeParticles(int count)
-	{
-		if (count <= 0)
-			return;
-
-		// Remove the last N particles (or all if count > particles.size())
-		count = std::min(count, static_cast<int>(particles.size()));
-
-		for (int i = 0; i < count; ++i)
-		{
-			if (!particles.empty())
-			{
-				delete particles.back();
-				particles.pop_back();
-			}
-		}
-
-		std::cout << "Removed " << count << " particles, total: " << particles.size() << std::endl;
-	}
-
-	void ParticleSystem::initialize(int count)
+	void ParticleSystem::initializeDamBreak(int count)
 	{
 		// Clear any existing particles first
 		reset();
 
-		// Calculate grid parameters for even distribution
-		int columns = static_cast<int>(sqrt(count * width / height));
-		int rows = static_cast<int>(count / columns) + 1;
+		std::pair<int, int> ratio = Config::DAM_RATIO;
+		float r = Config::PARTICLE_RADIUS;
 
-		float spacingX = width / (columns + 1);
-		float spacingY = height / (rows + 1) * 0.5f; // Use only top half of the screen
-
-		// Create a grid of particles
-		for (int y = 0; y < rows; ++y)
-		{
-			for (int x = 0; x < columns; ++x)
-			{
-				// Add some randomness to positions for more natural look
-				float offsetX = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 5.0f - 2.5f;
-				float offsetY = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 5.0f - 2.5f;
-
-				float posX = (x + 1) * spacingX + offsetX;
-				float posY = (y + 1) * spacingY + offsetY;
-
-				// Ensure we don't exceed the desired particle count
-				if (particles.size() < static_cast<size_t>(count))
-				{
-					addParticle(posX, posY);
-				}
-				else
-				{
-					return;
-				}
-			}
-		}
-	}
-
-	void ParticleSystem::initializeDamBreak(int count, float damWidth, float damHeight)
-	{
-		// Clear any existing particles first
-		reset();
-
-		// Clamp dam dimensions to reasonable values
-		damWidth = 0.133f;
-		damHeight = 1.0f;
-
+		
 		// Calculate dam dimensions in world units
-		float damWidthUnits = width * damWidth;
-		float damHeightUnits = height * damHeight;
+		float damWidthUnits = ratio.second * 2 * r;
+		float damHeightUnits = ratio.first * 2 * r;
 
 		// Calculate number of particles per dimension to achieve desired count
 		// while maintaining reasonable density
-		float particleSpacing = 10.0f;
+		float particleSpacing = Config::DP;
 		int columns = static_cast<int>(damWidthUnits / particleSpacing);
 		int rows = static_cast<int>(damHeightUnits / particleSpacing);
 

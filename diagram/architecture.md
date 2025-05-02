@@ -1,169 +1,159 @@
 ```mermaid
 classDiagram
-    class SPHSolver {
-        +update(dt)
-        +draw()
-        +initializeDefaultParticles()
-    }
-    
-    class ParallelSPHSolver {
-        -domainDecomposer
-        -boundaryManager
-        -loadBalancer
-        +update(dt)
-        +draw()
-    }
-    
-    class DomainDecomposer {
-        <<interface>>
-        +createDecomposition()
-        +assignParticlesToSubdomains()
-        +updateDecomposition()
-    }
-    
-    class GridDomainDecomposer {
-        +createDecomposition()
-        +assignParticlesToSubdomains()
-        +updateDecomposition()
-        -calculateGridDimensions()
-    }
-    
-    class AdaptiveDomainDecomposer {
-        +createDecomposition()
-        +assignParticlesToSubdomains()
-        +updateDecomposition()
-        -recursiveBisection()
-        -findBestSplitPosition()
-    }
-    
-    class SpaceFillingCurveDecomposer {
-        +createDecomposition()
-        +assignParticlesToSubdomains()
-        +updateDecomposition()
-        -positionToZOrder()
-        -interleave()
-    }
-    
-    class BoundaryManager {
-        +exchangeBoundaryData()
-        +clearGhostParticles()
-        -areNeighbors()
-        -findParticlesToShare()
-    }
-    
-    class LoadBalancer {
-        <<interface>>
-        +isRebalancingNeeded()
-        +rebalance()
-    }
-    
-    class SimpleLoadBalancer {
-        +isRebalancingNeeded()
-        +rebalance()
-        -calculateOptimalBoundaries()
-    }
-    
-    class Subdomain {
-        -id
-        -particles
-        -ghostParticles
-        -lastComputationTime
-        +addParticle()
-        +removeParticle()
-        +addGhostParticle()
-        +containsPoint()
-    }
-    
-    SPHSolver <|-- ParallelSPHSolver : extends
-    ParallelSPHSolver --> DomainDecomposer : uses
-    ParallelSPHSolver --> BoundaryManager : uses
-    ParallelSPHSolver --> LoadBalancer : uses
-    DomainDecomposer <|-- GridDomainDecomposer : implements
-    DomainDecomposer <|-- AdaptiveDomainDecomposer : implements
-    DomainDecomposer <|-- SpaceFillingCurveDecomposer : implements
-    LoadBalancer <|-- SimpleLoadBalancer : implements
-    DomainDecomposer --> Subdomain : creates
-    BoundaryManager --> Subdomain : manages ghost particles
-```
-
-```mermaid 
-classDiagram
     class SPHSimulation {
-        -physics: SPHPhysics
         -particles: ParticleSystem
+        -physics: SPHPhysics
         -parallelExecutor: ParallelExecutor
         -renderer: Renderer
+        -width: float
+        -height: float
+        -smoothingRadius: float
         +update(dt)
         +draw(window)
-        +initialize(particleCount)
-        +handleUserInput(input)
-    }
-    
-    class SPHPhysics {
-        -h: float
-        -gasConstant: float
-        -viscosity: float
-        -gravity: Vector2f
-        -restDensity: float
-        +computeDensityPressure(particles)
-        +computeForces(particles)
-        +resolveCollisions(particles, bounds)
-        -kernelPoly6(distSqr)
-        -kernelGradSpiky(dist, dir)
-        -kernelViscosityLaplacian(dist)
+        +addParticle(x, y)
+        +addParticles(count)
+        +initializeDefaultParticles(count)
+        +setLoadBalancingEnabled(bool)
     }
     
     class ParticleSystem {
         -particles: vector~Particle*~
         -grid: Grid
-        +getParticles()
-        +getGrid()
+        -width: float
+        -height: float
         +addParticle(x, y)
+        +addParticles(count)
         +removeParticles(count)
-        +reset()
         +initialize(count)
-        +update(dt)
+        +initializeDamBreak(count)
+        +updateGrid()
+    }
+    
+    class SPHPhysics {
+        -smoothingRadius: float
+        -gasConstant: float
+        -viscosity: float
+        -gravity: Vector2f
+        +computeDensityPressure(particles)
+        +computeForces(particles)
+        +resolveCollisions(particles, bounds)
     }
     
     class ParallelExecutor {
+        -parallelizationEnabled: bool
+        -loadBalancingEnabled: bool
+        -numThreads: int
         -domainDecomposer: DomainDecomposer
         -boundaryManager: BoundaryManager
+        -loadBalancer: LoadBalancer
         -subdomains: vector~Subdomain~
-        -numThreads: int
         +setThreadCount(count)
-        +getThreadCount()
         +executeParallel(task, particles)
         +updateDecomposition(particles)
-        -setupSubdomains(particles)
+        +checkAndRebalance()
     }
     
     class Renderer {
-        -font: Font
         -visualizeSubdomains: bool
+        -visualizeLoadBalance: bool
         +drawParticles(particles, window)
         +drawSubdomains(subdomains, window)
-        +setVisualizeSubdomains(enabled)
-        +getVisualizeSubdomains()
     }
-
+    
     class DomainDecomposer {
         <<interface>>
-        +createDecomposition()
-        +assignParticlesToSubdomains()
-        +updateDecomposition()
+        +createDecomposition(width, height, numSubdomains)
+        +assignParticlesToSubdomains(particles, subdomains)
+        +updateDecomposition(subdomains, particles)
+    }
+    
+    class GridDomainDecomposer {
+        +createDecomposition(width, height, numSubdomains)
+        +assignParticlesToSubdomains(particles, subdomains)
+        +updateDecomposition(subdomains, particles)
+    }
+    
+    class AdaptiveDomainDecomposer {
+        +createDecomposition(width, height, numSubdomains)
+        +assignParticlesToSubdomains(particles, subdomains)
+        +updateDecomposition(subdomains, particles)
+    }
+    
+    class SpaceFillingCurveDecomposer {
+        +createDecomposition(width, height, numSubdomains)
+        +assignParticlesToSubdomains(particles, subdomains)
+        +updateDecomposition(subdomains, particles)
     }
     
     class BoundaryManager {
-        +exchangeBoundaryData()
+        +exchangeBoundaryData(subdomains)
+        +clearGhostParticles(subdomains)
+    }
+    
+    class LoadBalancer {
+        <<interface>>
+        +isRebalancingNeeded(subdomains)
+        +rebalance(subdomains)
+        +setImbalanceThreshold(threshold)
+    }
+    
+    class SimpleLoadBalancer {
+        -rebalanceInterval: int
+        +isRebalancingNeeded(subdomains)
+        +rebalance(subdomains)
+        +setRebalanceInterval(steps)
+    }
+    
+    class Subdomain {
+        -id: int
+        -x, y, width, height: float
+        -particles: vector~Particle*~
+        -ghostParticles: vector~Particle*~
+        -lastComputationTime: float
+        +addParticle(particle)
+        +clearParticles()
+        +addGhostParticle(particle)
         +clearGhostParticles()
     }
     
-    SPHSimulation --> SPHPhysics : delegates physics
-    SPHSimulation --> ParticleSystem : manages particles
-    SPHSimulation --> ParallelExecutor : handles parallelization
-    SPHSimulation --> Renderer : handles rendering
-    ParallelExecutor --> DomainDecomposer : uses
-    ParallelExecutor --> BoundaryManager : uses
-    SPHPhysics --> ParticleSystem : accesses particles
-    Renderer --> ParallelExecutor : visualizes subdomains
+    class Particle {
+        -position: Vector2f
+        -velocity: Vector2f
+        -density: float
+        -pressure: float
+        +update(dt)
+        +updateColor()
+        +draw(window)
+    }
+    
+    class Grid {
+        -cellSize: float
+        -cells: unordered_map
+        +clear()
+        +insertParticle(particle)
+        +getNeighbors(x, y, radius)
+        +updateGrid(particles)
+    }
+    
+    SPHSimulation --> ParticleSystem : owns
+    SPHSimulation --> SPHPhysics : owns
+    SPHSimulation --> ParallelExecutor : owns
+    SPHSimulation --> Renderer : owns
+    
+    ParticleSystem --> Particle : manages
+    ParticleSystem --> Grid : uses
+    
+    ParallelExecutor --> DomainDecomposer : owns
+    ParallelExecutor --> BoundaryManager : owns
+    ParallelExecutor --> LoadBalancer : owns
+    ParallelExecutor --> Subdomain : manages
+    
+    DomainDecomposer <|-- GridDomainDecomposer : implements
+    DomainDecomposer <|-- AdaptiveDomainDecomposer : implements
+    DomainDecomposer <|-- SpaceFillingCurveDecomposer : implements
+    
+    LoadBalancer <|-- SimpleLoadBalancer : implements
+    
+    BoundaryManager --> Subdomain : manages ghost particles
+    DomainDecomposer --> Subdomain : creates
 ```

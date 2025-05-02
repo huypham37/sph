@@ -4,19 +4,18 @@
 #include <string>
 #include <sstream>
 #include "SPHSimulation.hpp" // Updated to use new class
+#include "SPHConfig.hpp"
 
 // Window dimensions
-constexpr int WINDOW_WIDTH = 1200;
-constexpr int WINDOW_HEIGHT = 500;
+constexpr int WINDOW_WIDTH = Config::WIDTH;
+constexpr int WINDOW_HEIGHT = Config::HEIGHT;
 
 // Simulation parameters
-constexpr float SIMULATION_TIMESTEP = 0.001f;
-constexpr int DEFAULT_PARTICLE_COUNT = 800;
+constexpr float SIMULATION_TIMESTEP = Config::TIME_STEP;
+constexpr int DEFAULT_PARTICLE_COUNT = Config::PARTICLE_COUNT;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
-constexpr float GRAVITY_Y = 500.0f;
+constexpr float GRAVITY_Y = Config::GRAVITY;
 
-// Particle adjustment parameters
-constexpr int PARTICLES_INCREMENT = 100;
 
 // FPS counter parameters
 constexpr float FPS_UPDATE_INTERVAL = 0.5f; // Update FPS display every 0.5 seconds
@@ -71,7 +70,6 @@ int main()
 							  "Controls:\n"
 							  "Space: Pause/Resume simulation\n" // Add this line
 							  "Move Mouse: Interact with fluid\n"
-							  "+/-: Add/Remove 100 particles\n"
 							  );
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
@@ -154,20 +152,6 @@ int main()
 					}
 				}
 
-				// Add particles with plus key
-				if (keyEvent->code == sf::Keyboard::Key::Add ||
-					keyEvent->code == sf::Keyboard::Key::Equal) // = and + share the same key
-				{
-					simulation.addParticles(PARTICLES_INCREMENT);
-				}
-
-				// Remove particles with minus key
-				if (keyEvent->code == sf::Keyboard::Key::Subtract ||
-					keyEvent->code == sf::Keyboard::Key::Hyphen) // - and _ share the same key
-				{
-					simulation.removeParticles(PARTICLES_INCREMENT);
-				}
-
 				// Increase thread count with ] key
 				if (keyEvent->code == sf::Keyboard::Key::RBracket)
 				{
@@ -192,43 +176,6 @@ int main()
 				{
 					simulation.setVisualizeSubdomains(!simulation.isVisualizeSubdomains());
 					std::cout << "Subdomain visualization " << (simulation.isVisualizeSubdomains() ? "enabled" : "disabled") << std::endl;
-				}
-
-				// Toggle load balancing with L key
-				if (keyEvent->code == sf::Keyboard::Key::L)
-				{
-					simulation.setLoadBalancingEnabled(!simulation.isLoadBalancingEnabled());
-				}
-
-				// Toggle load balancing visualization with B key
-				if (keyEvent->code == sf::Keyboard::Key::B)
-				{
-					simulation.setVisualizeLoadBalance(!simulation.isVisualizeLoadBalance());
-				}
-
-				// Adjust load balance threshold with T key (cycle through 0.1, 0.2, 0.3)
-				if (keyEvent->code == sf::Keyboard::Key::T)
-				{
-					// We don't have a getter for the current threshold, so we'll cycle through values
-					static float thresholds[] = {0.1f, 0.2f, 0.3f, 0.5f};
-					static int currentThresholdIndex = 0;
-
-					currentThresholdIndex = (currentThresholdIndex + 1) % 4;
-					float newThreshold = thresholds[currentThresholdIndex];
-					simulation.setLoadBalanceThreshold(newThreshold);
-					std::cout << "Load balance threshold set to " << newThreshold << std::endl;
-				}
-
-				// Adjust load balance interval with I key (cycle through values)
-				if (keyEvent->code == sf::Keyboard::Key::I)
-				{
-					static int intervals[] = {10, 30, 60, 120};
-					static int currentIntervalIndex = 0;
-
-					currentIntervalIndex = (currentIntervalIndex + 1) % 4;
-					int newInterval = intervals[currentIntervalIndex];
-					simulation.setLoadBalanceInterval(newInterval);
-					std::cout << "Load balance interval set to " << newInterval << " frames" << std::endl;
 				}
 
 				// Toggle pause with space bar

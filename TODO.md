@@ -1,11 +1,8 @@
 Current BottleNeck:
-- draw in Renderer
-- overlapping particles in resolving Collision
 
 Steps:
-- Modify logic to pour the fluid to the simulation
-- verify the affect of pressureForce into particles (currently, the there might not be enough pressure to push to particles away)
-- 
+- refactoring, remove smoothing on either on class simulation or on physics.  
 
 Future improvement:
+- 
 - SIMD for partciles processing and color update
