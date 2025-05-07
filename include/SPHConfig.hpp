@@ -3,11 +3,13 @@
 #include <memory>
 #include <utility>
 
-class SPHConfig {
+class SPHConfig
+{
 
 public:
   // Singleton Access
-  static SPHConfig &getInstance() {
+  static SPHConfig &getInstance()
+  {
     static SPHConfig instance;
     return instance;
   };
@@ -15,9 +17,9 @@ public:
   // Simulation space parameters
   static constexpr int WIDTH = 1200;
   static constexpr int HEIGHT = 600;
-  static constexpr int PARTICLE_COUNT = 600;
-  static constexpr float TIME_STEP = 0.001f; // Important, please do not change this
-  static constexpr std::pair<int, int> DAM_RATIO = {60, 10}; // this ratio following the particle count
+  static constexpr int PARTICLE_COUNT = 1000;
+  static constexpr float TIME_STEP = 0.001f;                 // Important, please do not change this
+  static constexpr std::pair<int, int> DAM_RATIO = {50, 20}; // this ratio following the particle count
 
   // SPH physics parameters
   static constexpr float DP = 10.0f;
@@ -29,18 +31,12 @@ public:
   static constexpr float REST_DENSITY = 0.9f;
   static constexpr float BOUNDARY_DAMPING = 0.3f;
   static constexpr float GAMMA = 7.0f;
-  
+
   // Particle mass calculated as density * area (for 2D)
   static constexpr float PARTICLE_MASS = REST_DENSITY * (DP * DP);
-  
+
   // Grid parameters
   static constexpr float CELL_SIZE = SMOOTHING_RADIUS; // Usually set to smoothingRadius
-
-  // Parallelization parameters
-  int numThreads = 4;
-
-  // Rendering parameters
-  bool visualizeSubdomains = false;
 
 private:
   // private construtor for Singleton

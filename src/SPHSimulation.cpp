@@ -14,7 +14,6 @@ namespace sph
 		particles = std::make_unique<ParticleSystem>(width, height, smoothingRadius);
 		physics = std::make_unique<SPHPhysics>();
 		physics->setSmoothingRadius(smoothingRadius);
-		parallelExecutor = std::make_unique<ParallelExecutor>(width, height, smoothingRadius);
 		renderer = std::make_unique<Renderer>();
 
 		std::cout << "SPH Simulation initialized with dimensions " << width << "x" << height << std::endl;
@@ -30,74 +29,74 @@ namespace sph
 		constexpr int sub_steps = 1; // Minimal substeps for stability
 		float sub_dt = dt / sub_steps;
 
-		// Update grid and cache neighbors once per frame
+		// Update grid (needs to be sequential due to data structure updates)
 		particles->updateGrid();
-		for (auto *particle : particles->getParticles())
-		{
-			particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius * 2);
-		}
 
 		// Substep loop for physics
-		for (int i = 0; i < sub_steps; ++i)
+		for (int step = 0; step < sub_steps; ++step)
 		{
-			if (parallelExecutor->isParallelizationEnabled() && particles->getParticleCount() > 1000) // Threshold for parallelization
+// Single OpenMP parallel region for the entire simulation step
+#pragma omp parallel
 			{
-				// Density and pressure task
-				auto densityPressureTask = [this](const std::vector<Particle *> &localParticles,
-												  const std::vector<Particle *> &)
+// Cache neighbors in parallel
+#pragma omp for schedule(dynamic, 64)
+				for (size_t i = 0; i < particles->getParticles().size(); ++i)
 				{
-					physics->computeDensityPressure(localParticles, particles->getGrid());
-				};
+					auto *particle = particles->getParticles()[i];
+					particle->cachedNeighbors = particles->getGrid()->getNeighbors(particle, smoothingRadius * 2);
+				}
 
-				auto forcesTask = [this](const std::vector<Particle *> &localParticles,
-										 const std::vector<Particle *> &)
+// Density and pressure calculation phase
+#pragma omp barrier
+#pragma omp for schedule(dynamic, 64)
+				for (size_t i = 0; i < particles->getParticles().size(); ++i)
 				{
-					physics->computeForces(localParticles, particles->getGrid());
-				};
+					auto *particle = particles->getParticles()[i];
+					physics->computeDensityPressureForParticle(particle);
+				}
 
-				auto boundaryForcesTask = [this](const std::vector<Particle *> &localParticles,
-												 const std::vector<Particle *> &)
+// Force calculation phase
+#pragma omp barrier
+#pragma omp for schedule(dynamic, 100)
+				for (size_t i = 0; i < particles->getParticles().size(); ++i)
 				{
-					physics->computeBoundaryForces(localParticles, width, height);
-				};
+					auto *particle = particles->getParticles()[i];
+					physics->computeForcesForParticle(particle);
+				}
 
-				// Integration task
-				auto integrateTask = [this, sub_dt](const std::vector<Particle *> &localParticles,
-													const std::vector<Particle *> &)
+// Boundary forces
+#pragma omp barrier
+#pragma omp for schedule(dynamic, 100)
+				for (size_t i = 0; i < particles->getParticles().size(); ++i)
 				{
-					physics->integrate(localParticles, sub_dt);
-				};
+					auto *particle = particles->getParticles()[i];
+					physics->computeBoundaryForcesForParticle(particle, width, height);
+				}
 
-				// Execute in parallel
-				parallelExecutor->executeParallel(densityPressureTask, particles->getParticles());
-				parallelExecutor->executeParallel(forcesTask, particles->getParticles());
-				parallelExecutor->executeParallel(boundaryForcesTask, particles->getParticles());
-				parallelExecutor->executeParallel(integrateTask, particles->getParticles());
-			}
-			else
-			{
-				// Sequential execution for small particle counts
-				physics->computeDensityPressure(particles->getParticles(), particles->getGrid());
-				physics->computeForces(particles->getParticles(), particles->getGrid());
-				physics->computeBoundaryForces(particles->getParticles(), width, height);
-				physics->integrate(particles->getParticles(), sub_dt);
-			}
-
-			// Update particle positions
-			for (auto *particle : particles->getParticles())
-			{
-				particle->update(sub_dt);
-			}
+// Integration
+#pragma omp barrier
+#pragma omp for schedule(dynamic, 100)
+				for (size_t i = 0; i < particles->getParticles().size(); ++i)
+				{
+					auto *particle = particles->getParticles()[i];
+					physics->integrateParticle(particle, sub_dt);
+					particle->update(sub_dt);
+				}
+			} // End of parallel region
 		}
 
-		// Resolve collisions once per frame
-		physics->resolveCollisions(particles->getParticles(), particles->getGrid(), width, height);
+// Collision resolution (can be parallel but separate from main computation)
+#pragma omp parallel for schedule(dynamic, 100)
+		for (size_t i = 0; i < particles->getParticles().size(); ++i)
+		{
+			auto *particle = particles->getParticles()[i];
+			physics->resolveCollisionsForParticle(particle,width, height);
+		}
 	}
 
 	void SPHSimulation::draw(sf::RenderWindow &window)
 	{
 		// Only update visuals for particles that are visible
-		// You might need a culling step to determine which particles are on-screen
 		for (auto *particle : particles->getParticles())
 		{
 			particle->updateVisuals();
@@ -105,20 +104,7 @@ namespace sph
 
 		// Draw particles
 		renderer->drawParticles(particles->getParticles(), window);
-
-		// Draw subdomains if enabled
-		if (renderer->isVisualizeSubdomains() && parallelExecutor->isParallelizationEnabled())
-		{
-			renderer->drawSubdomains(parallelExecutor->getSubdomains(), window);
-		}
-
-		// Draw load balance info if enabled
-		if (renderer->isVisualizeLoadBalance() && parallelExecutor->isParallelizationEnabled())
-		{
-			renderer->drawSubdomainLoadInfo(parallelExecutor->getSubdomains(), window);
-		}
 	}
-
 
 	void SPHSimulation::reset()
 	{
@@ -128,41 +114,6 @@ namespace sph
 	void SPHSimulation::initializeDefaultParticles(int count)
 	{
 		particles->initializeDamBreak(count);
-	}
-
-	void SPHSimulation::setNumThreads(int num)
-	{
-		parallelExecutor->setThreadCount(num);
-	}
-
-	int SPHSimulation::getNumThreads() const
-	{
-		return parallelExecutor->getThreadCount();
-	}
-
-	int SPHSimulation::getMaxThreads() const
-	{
-		return parallelExecutor->getMaxThreadCount();
-	}
-
-	void SPHSimulation::setParallelizationEnabled(bool enabled)
-	{
-		parallelExecutor->setParallelizationEnabled(enabled);
-	}
-
-	bool SPHSimulation::isParallelizationEnabled() const
-	{
-		return parallelExecutor->isParallelizationEnabled();
-	}
-
-	void SPHSimulation::setVisualizeSubdomains(bool enabled)
-	{
-		renderer->setVisualizeSubdomains(enabled);
-	}
-
-	bool SPHSimulation::isVisualizeSubdomains() const
-	{
-		return renderer->isVisualizeSubdomains();
 	}
 
 	size_t SPHSimulation::getParticleCount() const
@@ -221,6 +172,5 @@ namespace sph
 			}
 		}
 	}
-
 
 } // namespace sph

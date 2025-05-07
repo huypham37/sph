@@ -1,13 +1,9 @@
 # ninja log v5
-1	1283	1746189522415869580	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	548cdef4b1c1a895
-1	1344	1746189522477329424	CMakeFiles/sph_simulation.dir/src/ParallelExecutor.cpp.o	a57c4d9ec24c78b1
-2	1402	1746189522535942991	CMakeFiles/sph_simulation.dir/src/parallel/BoundaryManager.cpp.o	fd52ebbb92c05bb5
-1	1453	1746189522584758943	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	dbc4ffa71866ba8c
-1	1474	1746189522603789052	CMakeFiles/sph_simulation.dir/src/ParticleSystem.cpp.o	f7780e63a8a8231
-1	1492	1746189522625587480	CMakeFiles/sph_simulation.dir/src/SPHPhysics.cpp.o	57bf1230ea9d2640
-3	1513	1746189522647035242	CMakeFiles/sph_simulation.dir/src/parallel/GridDomainDecomposer.cpp.o	ef426d35689a4fd5
-2	1541	1746189522675181803	CMakeFiles/sph_simulation.dir/src/main.cpp.o	eae65ad325838461
-1	1552	1746189522685747039	CMakeFiles/sph_simulation.dir/src/Renderer.cpp.o	24cc7b763bb4d28
-2	1752	1746189522886297653	CMakeFiles/sph_simulation.dir/src/SPHSimulation.cpp.o	9cd059408661dce3
-1286	2000	1746189523134741891	CMakeFiles/sph_simulation.dir/src/parallel/Subdomain.cpp.o	906b5ce3e4c3b114
-2000	2069	1746189523205862392	sph_simulation	2f98f5344571fc0c
+1	783	1746595388481079280	CMakeFiles/sph_simulation.dir/src/Particle.cpp.o	e730743b91ecf2ff
+1	788	1746595388487190236	CMakeFiles/sph_simulation.dir/src/Renderer.cpp.o	7201c7c37dc81cde
+1	790	1746595388487687694	CMakeFiles/sph_simulation.dir/src/ParticleSystem.cpp.o	9aaac8049ca88bcc
+1	806	1746595388505223148	CMakeFiles/sph_simulation.dir/src/Grid.cpp.o	ed52f67a345d055c
+1	813	1746595388512482312	CMakeFiles/sph_simulation.dir/src/SPHPhysics.cpp.o	c973fca401ae2aa1
+2	848	1746595388547524968	CMakeFiles/sph_simulation.dir/src/main.cpp.o	95b86c98476301cb
+2	855	1746595388555052549	CMakeFiles/sph_simulation.dir/src/SPHSimulation.cpp.o	2b7996d5316ad880
+855	926	1746595388627354986	sph_simulation	d043d3676e651017

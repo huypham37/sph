@@ -113,6 +113,46 @@ public:
   void computeBoundaryForces(const std::vector<Particle *> &particles,
                              float width, float height);
 
+  /**
+   * @brief Compute density and pressure for a single particle
+   *
+   * @param particle Pointer to the particle to process
+   */
+  void computeDensityPressureForParticle(Particle* particle);
+
+  /**
+   * @brief Compute forces (pressure, viscosity, gravity) for a single particle
+   *
+   * @param particle Pointer to the particle to process
+   */
+  void computeForcesForParticle(Particle* particle);
+
+  /**
+   * @brief Compute boundary forces for a single particle
+   *
+   * @param particle Pointer to the particle to process
+   * @param width Width of simulation domain
+   * @param height Height of simulation domain
+   */
+  void computeBoundaryForcesForParticle(Particle* particle, float width, float height);
+
+  /**
+   * @brief Integrate position and velocity for a single particle
+   *
+   * @param particle Pointer to the particle to process
+   * @param dt Time step for integration
+   */
+  void integrateParticle(Particle* particle, float dt);
+
+  /**
+   * @brief Resolve collisions for a single particle
+   *
+   * @param particle Pointer to the particle to process
+   * @param width Width of simulation domain
+   * @param height Height of simulation domain
+   */
+  void resolveCollisionsForParticle(Particle* particle, float width, float height);
+
   // Getter methods for SPH parameters
   float getSmoothingRadius() const { return h; }
   float getViscosity() const { return viscosityCoefficient; }

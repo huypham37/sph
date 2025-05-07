@@ -4,7 +4,6 @@
 #include <memory>
 #include "ParticleSystem.hpp"
 #include "SPHPhysics.hpp"
-#include "ParallelExecutor.hpp"
 #include "Renderer.hpp"
 
 namespace sph
@@ -15,7 +14,7 @@ namespace sph
 	 *
 	 * Manages the overall simulation, delegating specific responsibilities
 	 * to specialized components like physics, particle management,
-	 * parallelization, and rendering.
+	 * and rendering.
 	 */
 	class SPHSimulation
 	{
@@ -89,19 +88,6 @@ namespace sph
 		 */
 		void applyMouseForce(const sf::Vector2f &mousePos, float strength);
 
-		// Thread management methods
-		void setNumThreads(int num);
-		int getNumThreads() const;
-		int getMaxThreads() const;
-
-		// Parallelization toggle
-		void setParallelizationEnabled(bool enabled);
-		bool isParallelizationEnabled() const;
-
-		// Visualization options
-		void setVisualizeSubdomains(bool enabled);
-		bool isVisualizeSubdomains() const;
-
 		// Simulation parameter setters
 		void setGravity(float x, float y);
 		void setViscosity(float v);
@@ -111,26 +97,11 @@ namespace sph
 		// Statistics
 		size_t getParticleCount() const;
 
-		// Load balancing methods
-		void setLoadBalancingEnabled(bool enabled);
-		bool isLoadBalancingEnabled() const;
-		void setLoadBalanceThreshold(float threshold);
-		void setLoadBalanceInterval(int frames);
-
-		// Load balance visualization
-		void setVisualizeLoadBalance(bool enabled);
-		bool isVisualizeLoadBalance() const;
-        
-        // Debug options
-        void setDebugThreads(bool enabled);
-        bool isDebugThreads() const;
-
 	private:
 		// Main simulation components
 		std::unique_ptr<ParticleSystem> particles;
 		std::unique_ptr<SPHPhysics> physics;
 		std::unique_ptr<Grid> grid;
-		std::unique_ptr<ParallelExecutor> parallelExecutor;
 		std::unique_ptr<Renderer> renderer;
 
 		// Simulation dimensions

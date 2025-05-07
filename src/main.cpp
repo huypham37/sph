@@ -16,7 +16,6 @@ constexpr int DEFAULT_PARTICLE_COUNT = Config::PARTICLE_COUNT;
 constexpr float MOUSE_FORCE_STRENGTH = 20.0f;
 constexpr float GRAVITY_Y = Config::GRAVITY;
 
-
 // FPS counter parameters
 constexpr float FPS_UPDATE_INTERVAL = 0.5f; // Update FPS display every 0.5 seconds
 
@@ -53,24 +52,17 @@ int main()
 	particleCountText.setFillColor(sf::Color::White);
 	particleCountText.setPosition({10, 10});
 
-	// Thread counter text
-	sf::Text threadCountText(font, "");
-	threadCountText.setCharacterSize(16);
-	threadCountText.setFillColor(sf::Color::White);
-	threadCountText.setPosition({10, 30});
-
 	// FPS counter text
 	sf::Text fpsText(font, "");
 	fpsText.setCharacterSize(16);
 	fpsText.setFillColor(sf::Color::White);
-	fpsText.setPosition({10, 50});
+	fpsText.setPosition({10, 30});
 
 	// Instruction text
 	sf::Text instructionsText(font,
 							  "Controls:\n"
-							  "Space: Pause/Resume simulation\n" // Add this line
-							  "Move Mouse: Interact with fluid\n"
-							  );
+							  "Space: Pause/Resume simulation\n"
+							  "Move Mouse: Interact with fluid\n");
 	instructionsText.setCharacterSize(14);
 	instructionsText.setFillColor(sf::Color::White);
 	instructionsText.setPosition({10, WINDOW_HEIGHT - 150});
@@ -83,7 +75,7 @@ int main()
 	bool gravityDown = true;
 	sf::Vector2f lastMousePos;
 	bool isMouseInWindow = false;
-	bool simulationPaused = false; // Add this line
+	bool simulationPaused = false;
 
 	while (window.isOpen())
 	{
@@ -152,32 +144,6 @@ int main()
 					}
 				}
 
-				// Increase thread count with ] key
-				if (keyEvent->code == sf::Keyboard::Key::RBracket)
-				{
-					simulation.setNumThreads(simulation.getNumThreads() + 1);
-				}
-
-				// Decrease thread count with [ key
-				if (keyEvent->code == sf::Keyboard::Key::LBracket)
-				{
-					simulation.setNumThreads(simulation.getNumThreads() - 1);
-				}
-
-				// Toggle parallelization with P key
-				if (keyEvent->code == sf::Keyboard::Key::P)
-				{
-					simulation.setParallelizationEnabled(!simulation.isParallelizationEnabled());
-					std::cout << "Parallelization " << (simulation.isParallelizationEnabled() ? "enabled" : "disabled") << std::endl;
-				}
-
-				// Toggle subdomain visualization with V key
-				if (keyEvent->code == sf::Keyboard::Key::V)
-				{
-					simulation.setVisualizeSubdomains(!simulation.isVisualizeSubdomains());
-					std::cout << "Subdomain visualization " << (simulation.isVisualizeSubdomains() ? "enabled" : "disabled") << std::endl;
-				}
-
 				// Toggle pause with space bar
 				if (keyEvent->code == sf::Keyboard::Key::Space)
 				{
@@ -192,7 +158,7 @@ int main()
 		accumulator += deltaTime;
 
 		// Update simulation with fixed time step
-		while (accumulator >= SIMULATION_TIMESTEP && !simulationPaused) // Add check here
+		while (accumulator >= SIMULATION_TIMESTEP && !simulationPaused)
 		{
 			simulation.update(SIMULATION_TIMESTEP);
 			accumulator -= SIMULATION_TIMESTEP;
@@ -200,15 +166,6 @@ int main()
 
 		// Update particle count text
 		particleCountText.setString("Particles: " + std::to_string(simulation.getParticleCount()));
-
-		// Update thread count text
-		std::stringstream threadText;
-		threadText << "Threads: " << simulation.getNumThreads() << "/" << simulation.getMaxThreads();
-		if (!simulation.isParallelizationEnabled())
-		{
-			threadText << " (disabled)";
-		}
-		threadCountText.setString(threadText.str());
 
 		// Update FPS counter
 		frameCount++;
@@ -228,7 +185,6 @@ int main()
 
 		// Draw UI
 		window.draw(particleCountText);
-		window.draw(threadCountText);
 		window.draw(fpsText);
 		window.draw(instructionsText);
 
