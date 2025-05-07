@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 #include <memory>
+#include <chrono>
+#include <vector>
 #include "ParticleSystem.hpp"
 #include "SPHPhysics.hpp"
 #include "Renderer.hpp"
@@ -97,6 +99,15 @@ namespace sph
 		// Statistics
 		size_t getParticleCount() const;
 
+		// New methods for metrics
+		void printPerformanceMetrics() const;
+
+		// Metrics getters
+		double getParticlesPerSecond() const { return particlesPerSecond; }
+		double getTimeStepsPerSecond() const { return timeStepsPerSecond; }
+		double getSimToPhysicalTimeRatio() const { return simToPhysicalRatio; }
+		double getAvgTimePerStep() const { return avgTimePerStep; }
+
 	private:
 		// Main simulation components
 		std::unique_ptr<ParticleSystem> particles;
@@ -110,6 +121,17 @@ namespace sph
 
 		// SPH parameters
 		float smoothingRadius;
+
+		// Performance metrics
+		std::chrono::time_point<std::chrono::high_resolution_clock> lastMetricUpdateTime;
+		int framesSinceLastMetricUpdate;
+		double particlesPerSecond;
+		double timeStepsPerSecond;
+		double simToPhysicalRatio;
+		double avgTimePerStep;
+		double totalSimulationTime;
+		double totalPhysicalTime;
+		std::vector<double> stepTimes; // For tracking step time vs particle count
 	};
 
 } // namespace sph

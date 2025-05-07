@@ -1,6 +1,7 @@
 #include "SPHSimulation.hpp"
 #include <iostream>
 #include <chrono>
+#include <iomanip>
 
 namespace sph
 {
@@ -8,13 +9,22 @@ namespace sph
 	SPHSimulation::SPHSimulation(float width, float height)
 		: width(width),
 		  height(height),
-		  smoothingRadius(Config::SMOOTHING_RADIUS)
+		  smoothingRadius(Config::SMOOTHING_RADIUS),
+		  framesSinceLastMetricUpdate(0),
+		  particlesPerSecond(0.0),
+		  timeStepsPerSecond(0.0),
+		  simToPhysicalRatio(0.0),
+		  avgTimePerStep(0.0),
+		  totalSimulationTime(0.0),
+		  totalPhysicalTime(0.0)
 	{
 		// Create component instances
 		particles = std::make_unique<ParticleSystem>(width, height, smoothingRadius);
 		physics = std::make_unique<SPHPhysics>();
 		physics->setSmoothingRadius(smoothingRadius);
 		renderer = std::make_unique<Renderer>();
+
+		lastMetricUpdateTime = std::chrono::high_resolution_clock::now();
 
 		std::cout << "SPH Simulation initialized with dimensions " << width << "x" << height << std::endl;
 	}
@@ -26,6 +36,9 @@ namespace sph
 
 	void SPHSimulation::update(float dt)
 	{
+		// Start timing this step
+		auto stepStartTime = std::chrono::high_resolution_clock::now();
+
 		constexpr int sub_steps = 1; // Minimal substeps for stability
 		float sub_dt = dt / sub_steps;
 
@@ -90,7 +103,40 @@ namespace sph
 		for (size_t i = 0; i < particles->getParticles().size(); ++i)
 		{
 			auto *particle = particles->getParticles()[i];
-			physics->resolveCollisionsForParticle(particle,width, height);
+			physics->resolveCollisionsForParticle(particle, width, height);
+		}
+
+		// Calculate metrics
+		auto stepEndTime = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> stepDuration = stepEndTime - stepStartTime;
+		double stepTime = stepDuration.count();
+
+		// Update metrics
+		framesSinceLastMetricUpdate++;
+		totalSimulationTime += stepTime;
+		totalPhysicalTime += dt;
+		simToPhysicalRatio = totalSimulationTime / totalPhysicalTime;
+
+		stepTimes.push_back(stepTime);
+		if (stepTimes.size() > 100)
+			stepTimes.erase(stepTimes.begin()); // Keep last 100 measurements
+
+		// Calculate average time per step
+		avgTimePerStep = 0;
+		for (double time : stepTimes)
+			avgTimePerStep += time;
+		avgTimePerStep /= stepTimes.size();
+
+		// Update metrics every second
+		auto now = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsed = now - lastMetricUpdateTime;
+		if (elapsed.count() >= 1.0)
+		{ // Update metrics every second
+			particlesPerSecond = particles->getParticleCount() * framesSinceLastMetricUpdate / elapsed.count();
+			timeStepsPerSecond = framesSinceLastMetricUpdate / elapsed.count();
+
+			framesSinceLastMetricUpdate = 0;
+			lastMetricUpdateTime = now;
 		}
 	}
 
@@ -171,6 +217,19 @@ namespace sph
 				}
 			}
 		}
+	}
+
+	void SPHSimulation::printPerformanceMetrics() const
+	{
+		std::cout << "===== Performance Metrics =====" << std::endl;
+		std::cout << "Particles: " << particles->getParticleCount() << std::endl;
+		std::cout << "Particles/second: " << std::fixed << std::setprecision(1) << particlesPerSecond << std::endl;
+		std::cout << "Timesteps/second: " << std::fixed << std::setprecision(2) << timeStepsPerSecond << std::endl;
+		std::cout << "Timesteps/minute: " << std::fixed << std::setprecision(1) << timeStepsPerSecond * 60 << std::endl;
+		std::cout << "Timesteps/hour: " << std::fixed << std::setprecision(1) << timeStepsPerSecond * 3600 << std::endl;
+		std::cout << "Simulation:Physical time ratio: " << std::fixed << std::setprecision(3) << simToPhysicalRatio << "x" << std::endl;
+		std::cout << "Avg time per step: " << std::fixed << std::setprecision(5) << avgTimePerStep * 1000 << " ms" << std::endl;
+		std::cout << "=============================" << std::endl;
 	}
 
 } // namespace sph

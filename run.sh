@@ -1,9 +1,9 @@
 #!/bin/bash
 # filepath: install_linux_deps.sh
-# Script to install OpenMP and SFML 3.0.0 for SPH simulation on Linux clusters
+# Script to install OpenMP and SFML 3.0.0 for SPH simulation on headless Linux clusters
 
 set -e  # Exit on error
-echo "===== Installing Dependencies for SPH Simulation (Linux) ====="
+echo "===== Installing Dependencies for SPH Simulation (Headless Linux Cluster) ====="
 
 # Create build and deps directories
 WORK_DIR=$(pwd)
@@ -31,24 +31,21 @@ else
     echo "If build fails, please ask cluster admin to install: libomp-dev build-essential cmake"
 fi
 
-# Install SFML dependencies
-echo "===== Installing SFML 3.0.0 ====="
+# Install minimal SFML dependencies for headless environment
+echo "===== Installing SFML 3.0.0 (Headless Mode) ====="
 
 if [ $HAS_SUDO -eq 1 ]; then
+    # Only install dependencies needed for SFML system and network components
     sudo apt-get install -y \
-        libgl1-mesa-dev \
-        libx11-dev \
-        libxrandr-dev \
-        libxcursor-dev \
         libudev-dev \
         libfreetype-dev \
         libopenal-dev \
         libflac-dev \
         libvorbis-dev
-    echo "SFML dependencies installed via apt"
+    echo "Minimal SFML dependencies installed via apt"
 else
     echo "No sudo access - cannot install SFML dependencies"
-    echo "If build fails, ask cluster admin to install SFML dependencies"
+    echo "If build fails, ask cluster admin to install minimal SFML dependencies"
 fi
 
 # Download and build SFML 3.0.0
@@ -67,10 +64,10 @@ fi
 echo "Building SFML 3.0.0..."
 mkdir -p build && cd build
 
-# Build with appropriate CMake options
+# Build with appropriate CMake options for headless environment
 CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=TRUE"
-# For headless clusters, optionally disable graphics components
-# CMAKE_OPTIONS="$CMAKE_OPTIONS -DSFML_BUILD_WINDOW=FALSE -DSFML_BUILD_GRAPHICS=FALSE"
+# Disable graphics components for headless cluster
+CMAKE_OPTIONS="$CMAKE_OPTIONS -DSFML_BUILD_WINDOW=FALSE -DSFML_BUILD_GRAPHICS=FALSE"
 
 cmake $CMAKE_OPTIONS -DCMAKE_INSTALL_PREFIX="${DEPS_DIR}/SFML-install" ..
 

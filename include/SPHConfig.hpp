@@ -17,9 +17,9 @@ public:
   // Simulation space parameters
   static constexpr int WIDTH = 1200;
   static constexpr int HEIGHT = 600;
-  static constexpr int PARTICLE_COUNT = 1000;
+  static constexpr int PARTICLE_COUNT = 2000;
   static constexpr float TIME_STEP = 0.001f;                 // Important, please do not change this
-  static constexpr std::pair<int, int> DAM_RATIO = {50, 20}; // this ratio following the particle count
+  static constexpr std::pair<int, int> DAM_RATIO = {50, 40}; // this ratio following the particle count
 
   // SPH physics parameters
   static constexpr float DP = 10.0f;

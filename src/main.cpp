@@ -71,6 +71,10 @@ int main()
 	sf::Clock fpsClock;
 	int frameCount = 0;
 
+	// Add a clock for metrics reporting
+	sf::Clock metricsReportClock;
+	const float METRICS_REPORT_INTERVAL = 5.0f; // Report every 5 seconds
+
 	// Main game loop
 	bool gravityDown = true;
 	sf::Vector2f lastMousePos;
@@ -162,6 +166,13 @@ int main()
 		{
 			simulation.update(SIMULATION_TIMESTEP);
 			accumulator -= SIMULATION_TIMESTEP;
+		}
+
+		// Periodically print performance metrics
+		if (metricsReportClock.getElapsedTime().asSeconds() > METRICS_REPORT_INTERVAL)
+		{
+			simulation.printPerformanceMetrics();
+			metricsReportClock.restart();
 		}
 
 		// Update particle count text
