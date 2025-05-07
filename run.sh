@@ -1,108 +1,168 @@
 #!/bin/bash
-# filepath: run_sph_cluster.sh
+# filepath: install_linux_deps.sh
+# Script to install OpenMP and SFML 3.0.0 for SPH simulation on Linux clusters
 
-# Exit on any error
-set -e
+set -e  # Exit on error
+echo "===== Installing Dependencies for SPH Simulation (Linux) ====="
 
-# ===== Configuration =====
-# Adjust these according to your cluster environment
-NUM_CORES=24            # Number of cores to use for OpenMP
-CLUSTER_QUEUE="compute"  # Your cluster's job queue
-JOB_NAME="sph_simulation" # Name for the job
-WALLTIME="01:00:00"     # Maximum run time (HH:MM:SS)
-
-# ===== Directory Setup =====
+# Create build and deps directories
 WORK_DIR=$(pwd)
-BUILD_DIR="${WORK_DIR}/build"
-SOURCE_DIR="${WORK_DIR}"
 DEPS_DIR="${WORK_DIR}/deps"
+BUILD_DIR="${WORK_DIR}/build"
 
-mkdir -p "${BUILD_DIR}"
 mkdir -p "${DEPS_DIR}"
+mkdir -p "${BUILD_DIR}"
 
-echo "===== Starting SPH Simulation Cluster Job ====="
-echo "Working directory: ${WORK_DIR}"
-echo "Building in: ${BUILD_DIR}"
-
-# ===== Dependencies =====
-# SFML is required for the graphics
-echo "Installing dependencies..."
-
-# Install SFML from source if needed
-if [ ! -d "${DEPS_DIR}/SFML-install" ]; then
-    cd "${DEPS_DIR}"
-    echo "Downloading SFML..."
-    wget https://github.com/SFML/SFML/archive/refs/tags/2.5.1.tar.gz -O SFML-2.5.1.tar.gz
-    tar -xzf SFML-2.5.1.tar.gz
-    cd SFML-2.5.1
-    
-    # Build SFML
-    echo "Building SFML..."
-    mkdir -p build && cd build
-    cmake -DCMAKE_INSTALL_PREFIX="${DEPS_DIR}/SFML-install" -DBUILD_SHARED_LIBS=ON ..
-    make -j${NUM_CORES}
-    make install
-    
-    echo "SFML installed successfully."
-    cd "${WORK_DIR}"
+# Determine if we have sudo access
+HAS_SUDO=0
+if command -v sudo &> /dev/null; then
+    sudo -n true &> /dev/null && HAS_SUDO=1
 fi
 
-# ===== Configure OpenMP =====
-# Set OpenMP environment variables
-export OMP_NUM_THREADS=${NUM_CORES}
-export OMP_PROC_BIND=true
-export OMP_PLACES=cores
-export OMP_SCHEDULE="dynamic,64"
+# Install OpenMP and build essentials
+echo "===== Installing OpenMP ====="
 
-# ===== Build Project =====
-echo "Building SPH simulation..."
-cd "${BUILD_DIR}"
+if [ $HAS_SUDO -eq 1 ]; then
+    sudo apt-get update
+    sudo apt-get install -y libomp-dev build-essential cmake
+    echo "OpenMP installed via apt"
+else
+    echo "No sudo access detected - assuming dependencies are available on the cluster"
+    echo "If build fails, please ask cluster admin to install: libomp-dev build-essential cmake"
+fi
 
-# Generate build files with CMake
-cmake -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_PREFIX_PATH="${DEPS_DIR}/SFML-install" \
-      -DCMAKE_CXX_FLAGS="-O3 -march=native -fopenmp" \
-      "${SOURCE_DIR}"
+# Install SFML dependencies
+echo "===== Installing SFML 3.0.0 ====="
 
-# Compile
-make -j${NUM_CORES}
+if [ $HAS_SUDO -eq 1 ]; then
+    sudo apt-get install -y \
+        libgl1-mesa-dev \
+        libx11-dev \
+        libxrandr-dev \
+        libxcursor-dev \
+        libudev-dev \
+        libfreetype-dev \
+        libopenal-dev \
+        libflac-dev \
+        libvorbis-dev
+    echo "SFML dependencies installed via apt"
+else
+    echo "No sudo access - cannot install SFML dependencies"
+    echo "If build fails, ask cluster admin to install SFML dependencies"
+fi
 
-echo "Build completed successfully."
+# Download and build SFML 3.0.0
+cd "${DEPS_DIR}"
+echo "Downloading SFML 3.0.0..."
+if [[ ! -d "${DEPS_DIR}/SFML" ]]; then
+    git clone --branch 3.0.0 --depth 1 https://github.com/SFML/SFML.git
+    cd SFML
+else
+    cd SFML
+    git fetch origin
+    git checkout 3.0.0
+fi
 
-# ===== Run Simulation =====
-echo "Starting SPH simulation with ${NUM_CORES} threads..."
+# Configure and build SFML
+echo "Building SFML 3.0.0..."
+mkdir -p build && cd build
 
-# Optional: Create job submission script for cluster systems like SLURM
-cat > run_job.sh << EOF
+# Build with appropriate CMake options
+CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=TRUE"
+# For headless clusters, optionally disable graphics components
+# CMAKE_OPTIONS="$CMAKE_OPTIONS -DSFML_BUILD_WINDOW=FALSE -DSFML_BUILD_GRAPHICS=FALSE"
+
+cmake $CMAKE_OPTIONS -DCMAKE_INSTALL_PREFIX="${DEPS_DIR}/SFML-install" ..
+
+# Determine number of cores for parallel build
+NUM_CORES=$(nproc)
+echo "Building with $NUM_CORES cores..."
+make -j$NUM_CORES
+make install
+
+echo "SFML 3.0.0 installed to ${DEPS_DIR}/SFML-install"
+
+# Create environment setup script
+cd "${WORK_DIR}"
+cat > setup_env.sh << EOF
 #!/bin/bash
-#SBATCH --job-name=${JOB_NAME}
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=${NUM_CORES}
-#SBATCH --time=${WALLTIME}
-#SBATCH --partition=${CLUSTER_QUEUE}
+# Source this file to set up environment variables
+# Usage: source setup_env.sh
 
-cd ${BUILD_DIR}
+export SFML_DIR="${DEPS_DIR}/SFML-install"
+export LD_LIBRARY_PATH="\${SFML_DIR}/lib:\${LD_LIBRARY_PATH}"
+export PATH="\${SFML_DIR}/bin:\${PATH}"
 
-# Set OpenMP environment
-export OMP_NUM_THREADS=${NUM_CORES}
+# OpenMP settings optimized for HPC environments
+export OMP_NUM_THREADS=\${OMP_NUM_THREADS:-$NUM_CORES}
 export OMP_PROC_BIND=true
 export OMP_PLACES=cores
 export OMP_SCHEDULE="dynamic,64"
+export OMP_STACKSIZE=16M
 
-# Run with performance measurements
-time ./sph_simulation
-
-echo "Simulation completed."
+echo "Environment set up for SPH simulation"
+echo "Using SFML from: \${SFML_DIR}"
+echo "OpenMP threads: \${OMP_NUM_THREADS}"
 EOF
 
-chmod +x run_job.sh
+chmod +x setup_env.sh
 
-echo "===== Job submission script created ====="
-echo "To submit the job:"
-echo "  sbatch run_job.sh"
+# Create build script
+cat > build_project.sh << EOF
+#!/bin/bash
+# Build the SPH project
+source ./setup_env.sh
+
+cd "${BUILD_DIR}"
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DSFML_DIR="\${SFML_DIR}/lib/cmake/SFML" \
+      -DCMAKE_CXX_FLAGS="-O3 -march=native -fopenmp" \
+      ..
+
+make -j\${OMP_NUM_THREADS}
+
+echo "Build complete. You can run the application with:"
+echo "cd ${BUILD_DIR} && ./sph_simulation"
+EOF
+
+chmod +x build_project.sh
+
+# Create a run script for cluster environments
+cat > run_cluster.sh << EOF
+#!/bin/bash
+#PBS -N sph_simulation
+#PBS -l nodes=1:ppn=${NUM_CORES}
+#PBS -l walltime=01:00:00
+# Change the above to match your cluster's job scheduler syntax
+# Common alternatives:
+# SLURM: #SBATCH --ntasks=1 --cpus-per-task=${NUM_CORES} --time=01:00:00
+# LSF: #BSUB -n ${NUM_CORES} -W 60
+
+# Setup environment
+cd \${PBS_O_WORKDIR:-\$(pwd)}
+source ./setup_env.sh
+
+# Run simulation with performance tracking
+cd "${BUILD_DIR}"
+echo "Starting SPH simulation with \${OMP_NUM_THREADS} threads at \$(date)"
+time ./sph_simulation
+
+echo "Simulation completed at \$(date)"
+EOF
+
+chmod +x run_cluster.sh
+
+echo "===== Installation Complete ====="
 echo ""
-echo "To run directly:"
-echo "  ./sph_simulation"
+echo "To set up your environment, run:"
+echo "  source ./setup_env.sh"
 echo ""
-echo "Setup complete!"
+echo "To build your project, run:"
+echo "  ./build_project.sh"
+echo ""
+echo "To submit a cluster job (adjust for your scheduler):"
+echo "  qsub run_cluster.sh   # PBS"
+echo "  sbatch run_cluster.sh # SLURM"
+echo "  bsub < run_cluster.sh # LSF"
+echo ""
+echo "Dependencies installed at: ${DEPS_DIR}"
