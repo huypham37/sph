@@ -1,12 +1,17 @@
 #pragma once
 
-#include <SFML/Graphics.hpp>
+#ifdef HEADLESS_MODE
+    #include <SFML/System.hpp>
+#else
+    #include <SFML/Graphics.hpp>
+    #include "Renderer.hpp"
+#endif
+
 #include <memory>
 #include <chrono>
 #include <vector>
 #include "ParticleSystem.hpp"
 #include "SPHPhysics.hpp"
-#include "Renderer.hpp"
 
 namespace sph
 {
@@ -41,12 +46,14 @@ namespace sph
 		 */
 		void update(float dt);
 
+#ifndef HEADLESS_MODE
 		/**
 		 * @brief Render simulation to SFML window
 		 *
 		 * @param window SFML window to draw to
 		 */
 		void draw(sf::RenderWindow &window);
+#endif
 
 		/**
 		 * @brief Initialize simulation with default particle configuration
@@ -113,7 +120,9 @@ namespace sph
 		std::unique_ptr<ParticleSystem> particles;
 		std::unique_ptr<SPHPhysics> physics;
 		std::unique_ptr<Grid> grid;
+#ifndef HEADLESS_MODE
 		std::unique_ptr<Renderer> renderer;
+#endif
 
 		// Simulation dimensions
 		float width;

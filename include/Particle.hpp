@@ -1,6 +1,14 @@
 #pragma once
 
-#include <SFML/Graphics.hpp>
+#ifdef HEADLESS_MODE
+    #include <SFML/System.hpp>  // Use the main System header, not specific files
+#else
+    #include <SFML/Graphics.hpp>
+#endif
+
+#include <vector>
+
+namespace sph {
 
 class Particle
 {
@@ -10,10 +18,13 @@ public:
 
 	std::vector<Particle *> cachedNeighbors;
 	void update(float dt);
-	// Update the particle color based on velocity
+	
+#ifndef HEADLESS_MODE
+	// Update the particle color based on velocity - only in graphical mode
 	void updateColor();
 	void updateVisuals();
 	void draw(sf::RenderWindow &window);
+#endif
 
 	sf::Vector2f getPosition() const { return position; }
 	sf::Vector2f getVelocity() const { return velocity; }
@@ -40,9 +51,14 @@ public:
 		float mass;
 		float density;
 		float pressure;
+		
+#ifndef HEADLESS_MODE
 		sf::CircleShape shape;
 		sf::Color baseColor; // Base color for the particle
+#endif
 
 		static constexpr float RADIUS = 5.0f;
 		
 };
+
+} // namespace sph

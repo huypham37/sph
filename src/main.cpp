@@ -1,9 +1,7 @@
-#include <SFML/Graphics.hpp>
 #include <iostream>
-#include <optional>
 #include <string>
 #include <sstream>
-#include "SPHSimulation.hpp" // Updated to use new class
+#include "SPHSimulation.hpp"
 #include "SPHConfig.hpp"
 
 // Window dimensions
@@ -18,6 +16,91 @@ constexpr float GRAVITY_Y = Config::GRAVITY;
 
 // FPS counter parameters
 constexpr float FPS_UPDATE_INTERVAL = 0.5f; // Update FPS display every 0.5 seconds
+
+#ifdef HEADLESS_MODE
+// Headless mode includes
+#include <chrono>
+#include <thread>
+
+int main(int argc, char **argv)
+{
+	std::cout << "Starting SPH simulation in headless mode" << std::endl;
+
+	// Parse optional command line arguments
+	int particleCount = DEFAULT_PARTICLE_COUNT;
+	float simulationDuration = 60.0f; // Default: simulate for 60 seconds
+
+	if (argc > 1)
+		particleCount = std::atoi(argv[1]);
+	if (argc > 2)
+		simulationDuration = std::atof(argv[2]);
+
+	// Create SPH simulation
+	sph::SPHSimulation simulation(WINDOW_WIDTH, WINDOW_HEIGHT);
+
+	// Initialize gravity
+	simulation.setGravity(0.0f, GRAVITY_Y);
+
+	// Initialize the simulation with particles
+	simulation.initializeDefaultParticles(particleCount);
+
+	// Track timing
+	auto startTime = std::chrono::high_resolution_clock::now();
+	auto lastMetricsTime = startTime;
+	float accumulator = 0.0f;
+
+	std::cout << "Running simulation with " << particleCount << " particles for "
+			  << simulationDuration << " seconds" << std::endl;
+
+	// Main simulation loop
+	bool simulationPaused = false;
+
+	while (true)
+	{
+		// Get elapsed time
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float deltaTime = std::chrono::duration<float>(currentTime - lastMetricsTime).count();
+		float totalTime = std::chrono::duration<float>(currentTime - startTime).count();
+
+		// Check if simulation duration reached
+		if (totalTime >= simulationDuration)
+		{
+			break;
+		}
+
+		// Update accumulator
+		accumulator += deltaTime;
+		lastMetricsTime = currentTime;
+
+		// Update simulation with fixed time step
+		while (accumulator >= SIMULATION_TIMESTEP && !simulationPaused)
+		{
+			simulation.update(SIMULATION_TIMESTEP);
+			accumulator -= SIMULATION_TIMESTEP;
+		}
+
+		// Periodically print performance metrics
+		if (totalTime / 5.0f > std::floor((totalTime - deltaTime) / 5.0f))
+		{
+			std::cout << "Simulation time: " << totalTime << " / "
+					  << simulationDuration << " seconds" << std::endl;
+			simulation.printPerformanceMetrics();
+		}
+
+		// Small sleep to avoid maxing out CPU
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+
+	std::cout << "Simulation complete." << std::endl;
+	simulation.printPerformanceMetrics();
+
+	return 0;
+}
+
+#else
+// Graphics mode includes
+#include <SFML/Graphics.hpp>
+#include <optional>
 
 int main()
 {
@@ -205,3 +288,4 @@ int main()
 
 	return 0;
 }
+#endif // HEADLESS_MODE

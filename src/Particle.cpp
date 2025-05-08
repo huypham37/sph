@@ -1,16 +1,22 @@
 #include "Particle.hpp"
 #include <cmath>
 #include "SPHConfig.hpp"
+
+namespace sph {
+
 Particle::Particle(float x, float y)
 	: position({x, y}),
 	  velocity({0.0f, 0.0f}),
 	  acceleration({0.0f, 0.0f}),
 	  mass(Config::PARTICLE_MASS),
 	  density(0.0f),
-	  pressure(0.0f),
-	  shape(Config::PARTICLE_RADIUS)
+	  pressure(0.0f)
+#ifndef HEADLESS_MODE
+	  ,shape(Config::PARTICLE_RADIUS)
+#endif
 {
-	// Base color for still particles
+#ifndef HEADLESS_MODE
+	// Base color for still particles - only in graphical mode
 	baseColor = sf::Color(40, 120, 255, 220);
 	shape.setFillColor(baseColor);
 	shape.setOrigin({RADIUS, RADIUS});
@@ -19,6 +25,7 @@ Particle::Particle(float x, float y)
 	// Add slight outline for better visibility
 	shape.setOutlineThickness(0.5f);
 	shape.setOutlineColor(sf::Color(10, 50, 150, 100));
+#endif
 }
 
 void Particle::update(float dt)
@@ -26,6 +33,7 @@ void Particle::update(float dt)
 	// Update position
 	position += velocity * dt;
 
+#ifndef HEADLESS_MODE
 	// Update color based on velocity - but only every few frames
 	static int frameCount = 0;
 	frameCount = (frameCount + 1) % 20; // Update color every 5 frames
@@ -36,8 +44,10 @@ void Particle::update(float dt)
 
 	// Update shape position for rendering
 	shape.setPosition(position);
+#endif
 }
 
+#ifndef HEADLESS_MODE
 void Particle::updateVisuals()
 {
 	updateColor();
@@ -109,3 +119,6 @@ void Particle::updateColor()
 		shape.setOutlineThickness(0.5f);
 	}
 }
+#endif // HEADLESS_MODE
+
+} // namespace sph

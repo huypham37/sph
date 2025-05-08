@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.10)
-project(SPH_Simulation VERSION 1.0)
+cmake_minimum_required(VERSION 3.14)
+project(sph_simulation VERSION 1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,36 +32,103 @@ if(APPLE AND CMAKE_C_COMPILER_ID MATCHES "Clang")
     endif()
 endif()
 
-# Set compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+# Option for headless mode
+option(HEADLESS_MODE "Build for headless mode without SFML graphics" OFF)
 
-# Find SFML 3.0
-find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
+# Common source files
+set(SOURCES
+    src/main.cpp
+    src/SPHSimulation.cpp
+    src/SPHPhysics.cpp
+    src/Particle.cpp
+    src/Grid.cpp
+    src/ParticleSystem.cpp
+)
 
-# Find OpenMP with additional variables now set
-find_package(OpenMP REQUIRED)
-if(OpenMP_CXX_FOUND)
-    message(STATUS "OpenMP found - Version: ${OpenMP_CXX_VERSION}")
-    message(STATUS "OpenMP C++ flags: ${OpenMP_CXX_FLAGS}")
-    message(STATUS "OpenMP C++ libraries: ${OpenMP_CXX_LIBRARIES}")
-else()
-    message(FATAL_ERROR "OpenMP not found but required - aborting build")
+# Add Renderer.cpp only when not in headless mode
+if(NOT HEADLESS_MODE)
+    list(APPEND SOURCES src/Renderer.cpp)
 endif()
 
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR}/include)
-
-# Add source files
-file(GLOB SOURCES "src/*.cpp")
-file(GLOB PARALLEL_SOURCES "src/parallel/*.cpp")
-
 # Create executable
-add_executable(sph_simulation ${SOURCES} ${PARALLEL_SOURCES})
+add_executable(sph_simulation ${SOURCES})
+target_include_directories(sph_simulation PRIVATE include)
 
-# Link libraries using new SFML 3.0 target names
-target_link_libraries(sph_simulation SFML::Graphics SFML::Window SFML::System OpenMP::OpenMP_CXX)
+# macOS specific SFML paths
+if(APPLE)
+    # Apple Silicon Mac
+    if(EXISTS "/opt/homebrew/include")
+        target_include_directories(sph_simulation PRIVATE /opt/homebrew/include)
+        link_directories(/opt/homebrew/lib)
+    endif()
+    
+    # Intel Mac
+    if(EXISTS "/usr/local/include")
+        target_include_directories(sph_simulation PRIVATE /usr/local/include)
+        link_directories(/usr/local/lib)
+    endif()
+endif()
+
+# Find SFML packages
+if(HEADLESS_MODE)
+    # Define HEADLESS_MODE for conditional compilation
+    target_compile_definitions(sph_simulation PRIVATE HEADLESS_MODE)
+    
+    # Only find and link against SFML System for headless mode
+    find_package(SFML 3.0 COMPONENTS System REQUIRED)
+
+    # Add explicit library and linking info
+    if(APPLE)
+        if(EXISTS "/opt/homebrew/lib/libsfml-system.dylib")
+            target_link_libraries(sph_simulation PRIVATE "/opt/homebrew/lib/libsfml-system.dylib")
+        elseif(EXISTS "/usr/local/lib/libsfml-system.dylib")
+            target_link_libraries(sph_simulation PRIVATE "/usr/local/lib/libsfml-system.dylib")
+        else()
+            target_link_libraries(sph_simulation PRIVATE sfml-system)
+        endif()
+    else()
+        target_link_libraries(sph_simulation PRIVATE sfml-system)
+    endif()
+else()
+    # Find and link against full SFML for graphical mode
+    find_package(SFML 3.0 COMPONENTS System Window Graphics REQUIRED)
+
+    # Add explicit library paths for Apple systems
+    if(APPLE)
+        if(EXISTS "/opt/homebrew/lib/libsfml-system.dylib" AND 
+           EXISTS "/opt/homebrew/lib/libsfml-window.dylib" AND
+           EXISTS "/opt/homebrew/lib/libsfml-graphics.dylib")
+            target_link_libraries(sph_simulation PRIVATE 
+                "/opt/homebrew/lib/libsfml-system.dylib"
+                "/opt/homebrew/lib/libsfml-window.dylib"
+                "/opt/homebrew/lib/libsfml-graphics.dylib"
+            )
+        elseif(EXISTS "/usr/local/lib/libsfml-system.dylib" AND 
+               EXISTS "/usr/local/lib/libsfml-window.dylib" AND
+               EXISTS "/usr/local/lib/libsfml-graphics.dylib")
+            target_link_libraries(sph_simulation PRIVATE 
+                "/usr/local/lib/libsfml-system.dylib"
+                "/usr/local/lib/libsfml-window.dylib"
+                "/usr/local/lib/libsfml-graphics.dylib"
+            )
+        else()
+            target_link_libraries(sph_simulation PRIVATE sfml-system sfml-window sfml-graphics)
+        endif()
+    else()
+        target_link_libraries(sph_simulation PRIVATE sfml-system sfml-window sfml-graphics)
+    endif()
+endif()
+
+# OpenMP support
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(sph_simulation PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+# Print some useful information during configure
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Headless mode: ${HEADLESS_MODE}")
+message(STATUS "SFML include dirs: ${SFML_INCLUDE_DIR}")
 
 # Install target
 install(TARGETS sph_simulation DESTINATION bin)

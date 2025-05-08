@@ -22,7 +22,9 @@ namespace sph
 		particles = std::make_unique<ParticleSystem>(width, height, smoothingRadius);
 		physics = std::make_unique<SPHPhysics>();
 		physics->setSmoothingRadius(smoothingRadius);
+#ifndef HEADLESS_MODE
 		renderer = std::make_unique<Renderer>();
+#endif
 
 		lastMetricUpdateTime = std::chrono::high_resolution_clock::now();
 
@@ -140,6 +142,7 @@ namespace sph
 		}
 	}
 
+#ifndef HEADLESS_MODE
 	void SPHSimulation::draw(sf::RenderWindow &window)
 	{
 		// Only update visuals for particles that are visible
@@ -151,6 +154,7 @@ namespace sph
 		// Draw particles
 		renderer->drawParticles(particles->getParticles(), window);
 	}
+#endif
 
 	void SPHSimulation::reset()
 	{

@@ -1,6 +1,8 @@
 #include "Grid.hpp"
 #include <cmath>
 
+namespace sph {
+
 Grid::Grid(float width, float height, float cellSize)
     : cellSize(cellSize), invCellSize(1.0f / cellSize),
       gridWidth(static_cast<int>(std::ceil(width / cellSize))),
@@ -8,13 +10,13 @@ Grid::Grid(float width, float height, float cellSize)
 
 void Grid::clear() { cells.clear(); }
 
-void Grid::insertParticle(Particle *particle) {
+void Grid::insertParticle(sph::Particle *particle) {
   auto pos = particle->getPosition();
   int index = getCellIndex(pos.x, pos.y);
   cells[index].push_back(particle);
 }
 
-void Grid::updateGrid(const std::vector<Particle *> &particles) {
+void Grid::updateGrid(const std::vector<sph::Particle *> &particles) {
   this->clear();
 
   for (auto *particle : particles) {
@@ -22,8 +24,8 @@ void Grid::updateGrid(const std::vector<Particle *> &particles) {
   }
 }
 
-std::vector<Particle *> Grid::getNeighbors(float x, float y, float radius) {
-  std::vector<Particle *> neighbors;
+std::vector<sph::Particle *> Grid::getNeighbors(float x, float y, float radius) {
+  std::vector<sph::Particle *> neighbors;
 
   // Calculate cell coordinates and radius in cells
   auto [cellX, cellY] = positionToCell(x, y);
@@ -46,7 +48,7 @@ std::vector<Particle *> Grid::getNeighbors(float x, float y, float radius) {
       auto it = cells.find(cellIdx);
       if (it != cells.end()) {
         // Filter particles by actual distance
-        for (Particle *p : it->second) {
+        for (sph::Particle *p : it->second) {
           float dx = x - p->getPosition().x;
           float dy = y - p->getPosition().y;
           float distSquared = dx * dx + dy * dy;
@@ -62,7 +64,7 @@ std::vector<Particle *> Grid::getNeighbors(float x, float y, float radius) {
   return neighbors;
 }
 
-std::vector<Particle *> Grid::getNeighbors(const Particle *particle,
+std::vector<sph::Particle *> Grid::getNeighbors(const sph::Particle *particle,
                                            float radius) {
   auto pos = particle->getPosition();
   return getNeighbors(pos.x, pos.y, radius);
@@ -82,3 +84,5 @@ std::pair<int, int> Grid::positionToCell(float x, float y) const {
   int cellY = static_cast<int>(y * invCellSize);
   return {cellX, cellY};
 }
+
+} // namespace sph
