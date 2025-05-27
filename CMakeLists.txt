@@ -35,6 +35,12 @@ endif()
 # Option for headless mode
 option(HEADLESS_MODE "Build for headless mode without SFML graphics" OFF)
 
+# Disable SFML discovery early if in headless mode
+if(HEADLESS_MODE)
+    set(CMAKE_DISABLE_FIND_PACKAGE_SFML TRUE)
+    message(STATUS "Early headless mode detection: SFML discovery disabled")
+endif()
+
 # Common source files
 set(SOURCES
     src/main.cpp
@@ -54,6 +60,34 @@ endif()
 add_executable(sph_simulation ${SOURCES})
 target_include_directories(sph_simulation PRIVATE include)
 
+# Add SIMD optimization flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Clang-specific optimization flags
+    target_compile_options(sph_simulation PRIVATE 
+        -march=native          # Use all available CPU instructions
+        -mtune=native          # Optimize for current CPU
+        -ffast-math            # Enable fast math optimizations
+        -funroll-loops         # Unroll loops for vectorization
+        -fvectorize            # Enable auto-vectorization (Clang)
+        -ftree-vectorize       # Enable auto-vectorization
+    )
+    
+    # Add SIMD-specific flags for Apple Silicon (M1/M2)
+    if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+        target_compile_options(sph_simulation PRIVATE -mcpu=apple-m1)
+    endif()
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # GCC-specific optimization flags
+    target_compile_options(sph_simulation PRIVATE 
+        -march=native          # Use all available CPU instructions
+        -mtune=native          # Optimize for current CPU
+        -ffast-math            # Enable fast math optimizations
+        -funroll-loops         # Unroll loops for vectorization
+        -ftree-vectorize       # Enable auto-vectorization (GCC)
+        -ftree-loop-vectorize  # Enable loop vectorization (GCC)
+    )
+endif()
+
 # macOS specific SFML paths
 if(APPLE)
     # Apple Silicon Mac
@@ -69,26 +103,17 @@ if(APPLE)
     endif()
 endif()
 
-# Find SFML packages
+# Disable SFML completely in headless mode
 if(HEADLESS_MODE)
     # Define HEADLESS_MODE for conditional compilation
     target_compile_definitions(sph_simulation PRIVATE HEADLESS_MODE)
     
-    # Only find and link against SFML System for headless mode
-    find_package(SFML 3.0 COMPONENTS System REQUIRED)
-
-    # Add explicit library and linking info
-    if(APPLE)
-        if(EXISTS "/opt/homebrew/lib/libsfml-system.dylib")
-            target_link_libraries(sph_simulation PRIVATE "/opt/homebrew/lib/libsfml-system.dylib")
-        elseif(EXISTS "/usr/local/lib/libsfml-system.dylib")
-            target_link_libraries(sph_simulation PRIVATE "/usr/local/lib/libsfml-system.dylib")
-        else()
-            target_link_libraries(sph_simulation PRIVATE sfml-system)
-        endif()
-    else()
-        target_link_libraries(sph_simulation PRIVATE sfml-system)
-    endif()
+    # No SFML dependencies needed in headless mode
+    message(STATUS "Headless mode: No SFML libraries will be linked")
+    
+    # Completely disable SFML discovery and linking
+    set(CMAKE_DISABLE_FIND_PACKAGE_SFML TRUE)
+    
 else()
     # Find and link against full SFML for graphical mode
     find_package(SFML 3.0 COMPONENTS System Window Graphics REQUIRED)
@@ -128,7 +153,9 @@ endif()
 # Print some useful information during configure
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Headless mode: ${HEADLESS_MODE}")
-message(STATUS "SFML include dirs: ${SFML_INCLUDE_DIR}")
+if(NOT HEADLESS_MODE)
+    message(STATUS "SFML include dirs: ${SFML_INCLUDE_DIR}")
+endif()
 
 # Install target
 install(TARGETS sph_simulation DESTINATION bin)

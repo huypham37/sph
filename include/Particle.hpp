@@ -1,8 +1,8 @@
 #pragma once
 
-#ifdef HEADLESS_MODE
-    #include <SFML/System.hpp>  // Use the main System header, not specific files
-#else
+#include "Grid.hpp"  // For Vector2f abstraction
+
+#ifndef HEADLESS_MODE
     #include <SFML/Graphics.hpp>
 #endif
 

@@ -1,8 +1,6 @@
 #pragma once
 
-#ifdef HEADLESS_MODE
-    #include <SFML/System.hpp>
-#else
+#ifndef HEADLESS_MODE
     #include <SFML/Graphics.hpp>
     #include "Renderer.hpp"
 #endif
