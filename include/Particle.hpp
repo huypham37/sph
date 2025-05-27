@@ -1,14 +1,14 @@
 #pragma once
 
-#include "Grid.hpp"  // For Vector2f abstraction
+// Always include Vector2 from SFML for both modes
+#include <SFML/System/Vector2.hpp>
 
 #ifndef HEADLESS_MODE
     #include <SFML/Graphics.hpp>
 #endif
 
+#include "Grid.hpp"
 #include <vector>
-
-namespace sph {
 
 class Particle
 {
